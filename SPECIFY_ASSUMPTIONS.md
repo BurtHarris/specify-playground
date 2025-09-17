@@ -23,7 +23,9 @@ Distinguishing minimal Copilot vs Copilot+Specify
 
 Policy note
 -----------
-The assistant must not perform VCS operations (creating branches, committing, or pushing) unless the developer has provided the repository consent token (`.assistant-consent`) and explicitly confirmed the operation in the chat.
+The assistant must not perform VCS operations (creating branches, committing, or pushing) unless the developer has explicitly confirmed the operation in the chat.
+
+Note: the `.assistant-consent` file referenced elsewhere in this document is a local assistant/Copilot governance overlay used by this project to make consent explicit; it is not part of the upstream Spec Kit tooling or documentation. Spec Kit itself does not require or check `.assistant-consent` — it assumes developers directly control VCS actions.
 
 Terminology (what we mean by "commands")
 ------------------------------------------
@@ -72,12 +74,39 @@ Core assumptions about how `.specify` works
          - Pros: branch creation is tightly coupled to implementation; the main/history stays clean of draft specs until code work is ready.
          - Cons: reviewers may need to relocate spec/plan artifacts into the implementation branch for combined review.
 
-3. Discovery, plan, impl commands
-   - `/specify`: discovery/status command that reads the current branch and `specs/` layout and reports `FEATURE_SPEC`, `SPECS_DIR`, `IMPL_PLAN`, and `BRANCH`.
-   - `/plan`: generate a plan (draft `plan.md`) and phase artifacts (`research.md`, `data-model.md`, `tasks.md`, `quickstart.md`, `contracts/`) under the same `specs/NNN-short-feature/` directory.
-   - `/impl`: scaffold implementation artifacts (tests, fixtures, code stubs) guided by the approved plan.
+3. Template source (what we mean by this)
 
-4. Local helpers mirror chat commands
+   - Template source: where command templates and file scaffolding live in the repository. These templates drive the generated artifacts for each phase and are intended to be source-controlled so that their evolution is auditable. Common locations include `.specify/commands/` for the phase templates and `.specify/templates/` for file-level templates.
+
+4. Phase-by-phase artifacts and template sources
+    - `/specify` phase
+       - Primary artifact:
+          - `specs/XXX-feature/spec.md` → the feature specification (the “what” and “why”).
+       - Content:
+          - Natural‑language requirements, motivations, and success criteria.
+       - Template source: `.specify/commands/specify.md`
+
+    - `/plan` phase
+       - Primary artifact:
+          - `specs/XXX-feature/plan.md` → the implementation strategy.
+       - Supporting artifacts (auto‑generated alongside the plan):
+          - `research.md` → background research, references, or design notes.
+          - `data-model.md` → schema, entities, relationships.
+          - `contracts/` → API contracts or interface definitions.
+          - `quickstart.md` → setup instructions or developer onboarding notes.
+       - Template source: `.specify/commands/plan.md`
+
+    - `/tasks` phase
+       - Primary artifact:
+          - `specs/XXX-feature/tasks.md` → an ordered, dependency‑aware task list.
+       - Content:
+          - Breaks the plan into small, actionable, testable units. Each task is scoped to be reviewable in isolation.
+       - Template source: `.specify/commands/tasks.md`
+
+    - Key insight
+       - The workflow is progressively elaborative: `/specify` → intent; `/plan` → architecture and supporting documentation; `/tasks` → execution roadmap. By the time you reach Implement you have a bundle of artifacts (spec, plan, research, data model, contracts, quickstart, tasks) that serve as the foundation for coding.
+
+5. Local helpers mirror chat commands
    - There are local Bash scripts under `.specify/scripts/bash/` that mirror `/specify`, `/plan`, and `/tasks` behaviors for offline usage.
    - `setup-plan.sh --json` performs discovery and prints JSON with `FEATURE_SPEC`, `IMPL_PLAN`, `SPECS_DIR`, `BRANCH` for the current workspace state.
 
@@ -137,6 +166,7 @@ The user has raised concerns about how `.specify` creates artifacts and how assi
 Appendix B — Suggested repository-level controls
 ------------------------------------------------
 1. Consent file (`.assistant-consent`) — file with `allow-terminal: true` to enable assistant-run terminal commands.
+   - Note: this consent-file mechanism is a local governance overlay (introduced by the assistant/Copilot layer) and is not enforced or required by Spec Kit itself.
 2. Assistant run policy (`.copilot-run-policy.md`) — a human- and machine-readable policy that the assistant must follow.
 3. Generated artifacts dir — default generated files go to `.specify/generated/` or a draft directory to avoid modifying tracked files until confirmed.
 4. Logging — assistant writes command logs to `.assistant-run-logs/` for audit and troubleshooting.
@@ -144,3 +174,35 @@ Appendix B — Suggested repository-level controls
 Change log
 ----------
 - Created 2025-09-17 by assistant for playground repo.
+
+Project branch policy (current)
+--------------------------------
+
+For simplicity, this project accepts the feature branch created by `/specify` as the default workflow for now. Teams are welcome to adopt a different policy (for example: branch-at-/plan or branch-at-/tasks) in the future; note that some contributors are exploring more sophisticated branching policies and tooling flags. If you prefer a different policy, add a short note here describing it and the team will follow that convention.
+
+Multi-feature workflow
+-----------------------
+
+1. Run `/specify` for each feature idea
+   - Each invocation creates a new `specs/XXX-feature/spec.md` file and (in current tool behavior) a feature branch tied to that spec. You can repeat this step multiple times for different ideas, producing several parallel spec branches.
+
+2. Switch back later to work on a single feature
+   - When ready to advance a specific feature, check out its feature branch.
+
+3. Run `/plan` on the feature branch
+   - This generates `plan.md` plus supporting artifacts (`research.md`, `data-model.md`, `contracts/`, `quickstart.md`) into the same `specs/XXX-feature/` directory on that branch.
+
+4. Run `/tasks` on the feature branch
+   - This produces `tasks.md`, an ordered set of actionable, testable tasks derived from the plan.
+
+5. Implement independently
+   - Each feature branch now contains spec, plan, and tasks. Implement and land code for one feature while leaving other feature branches untouched until they are ready to advance.
+
+Post-/specify checklist (what to do after running `/specify`)
+-----------------------------------------------------------
+
+- Review the generated `specs/XXX-feature/spec.md` and ensure the title and summary match your intent.
+- If the branch was created automatically and you do not want to keep it, delete the branch locally (and remotely if pushed).
+- If you plan to advance the feature, check out the feature branch, run `/plan`, review generated artifacts, then run `/tasks` and iterate.
+- Commit and push only the artifacts you intend to keep (e.g., `plan.md`, `tasks.md`, `research.md`) with a clear commit message referencing the spec ID.
+- If multiple spec branches exist, pick and check out one feature branch at a time to avoid accidental commits on the wrong branch.
