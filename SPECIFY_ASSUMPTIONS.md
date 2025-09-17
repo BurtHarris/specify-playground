@@ -7,6 +7,44 @@ Purpose
 -------
 Provide a concise, auditable list of assumptions so contributors and automated agents share the same expectations about behavior and responsibilities.
 
+Roles and responsibilities
+--------------------------
+This section defines the roles referenced in this document. Language intentionally avoids personification of automated tools.
+
+- Developer: A human contributor who authors specs, reviews plans, writes code, and performs Git operations. Developers are responsible for final decisions, branch creation, commits, and pushes.
+
+- Assistant: an automated coding/authoring tool that can read repository files, generate draft content, and run scripts when explicitly permitted. The assistant helps accelerate Specify workflows but does not replace developer judgment or approval.
+
+Distinguishing minimal Copilot vs Copilot+Specify
+-------------------------------------------------
+- Minimal Copilot: suggestion and completion mode. It provides inline code suggestions, completions, and short helper text when you type in an editor. This mode does not imply workflow orchestration or running scripts.
+
+- Copilot+Specify: an augmented interaction model where the assistant accepts higher-level chat instructions (slash-commands like `/specify`, `/plan`, `/impl`) that can generate multiple artifacts, produce plans, and — with explicit consent — run helper scripts to scaffold files. This mode should be used when you want the assistant to orchestrate a Specify flow rather than just provide editor suggestions.
+
+Policy note
+-----------
+The assistant must not perform VCS operations (creating branches, committing, or pushing) unless the developer has provided the repository consent token (`.assistant-consent`) and explicitly confirmed the operation in the chat.
+
+Terminology (what we mean by "commands")
+------------------------------------------
+The word "command" is used in this document in three different but related ways; readers may be unfamiliar with the distinctions, so we define them here.
+
+- Chat slash-commands (chat-only): short messages you type in the chat to instruct the assistant. Examples: `/specify`, `/plan`, `/impl`.
+   - Semantics: these are conversational requests. The assistant interprets them and may run local scripts or generate content, but it will always ask for confirmation before changing tracked files or running destructive Git/network actions.
+
+- Local helper scripts (shell commands): executable scripts kept in the repo, for example `.specify/scripts/bash/setup-plan.sh` or `.specify/scripts/bash/create-new-feature.sh`.
+   - Semantics: these are intended to be run in a shell/terminal by a developer or by the assistant when explicit consent exists. They perform discovery, scaffolding, and generation locally.
+
+- VCS or OS commands (git/npm/etc.): explicit Git, npm, pnpm, or OS commands (for example `git checkout -b`, `git commit`, `npm install`).
+   - Semantics: these change repository or system state. By policy, assistant-run VCS/OS commands require explicit, separate confirmation and the repository consent token (`.assistant-consent`).
+
+Examples of usage patterns
+--------------------------
+- Quick discovery (chat-only): you type `/specify` in chat. The assistant inspects the current branch and spec layout and returns a human-readable summary — no files changed.
+- Guided plan (chat + refinement): start with `/specify` to confirm context, then `/plan` (optionally followed by a plain-English instruction) to generate a draft plan. Review the draft in chat and iterate.
+- Local script run (developer or assistant with consent): run `.specify/scripts/bash/setup-plan.sh --json` in the repo to validate discovery locally; this prints JSON and does not commit files.
+- Assisted scaffold (assistant modifies files): after plan approval, the assistant may propose `/impl` and, with your explicit confirmation and consent file, run scripts to create scaffolding and then ask whether to commit them.
+
 Core assumptions about how `.specify` works
 -----------------------------------------
 1. Feature-first, spec-driven workflow
