@@ -2,9 +2,9 @@
 
 Summary
 -------
-The repository contains an Azure-related guideline file that created confusion about whether the project depends on or uses Azure services. A quick repository search shows no tracked project files mentioning "azure" (excluding installed dependencies). The only occurrences are inside `node_modules` (transitive dependency data and vendor metadata).
+The repository surfaced an Azure-related guideline (or text mentioning Azure) that caused confusion for contributors: some maintainers suspected the project depends on Azure or contains Azure-specific deploy guidance. A read-only search of the working tree shows no tracked project files mentioning "azure" when `node_modules` and `.git` are excluded. The only matches are transitive artifacts inside `node_modules`.
 
-This report documents the environment, the commands used to search the repo, exact results observed, and suggested triage steps.
+This report documents the environment, exact commands used to search the repo, the observed results, user impact, and a prioritized triage checklist with remediation options.
 
 Environment snapshot
 --------------------
@@ -71,6 +71,69 @@ Observed results
   - `node_modules/color-name` contains the color name "azure"
 
 These are expected transitive artifact mentions and do not indicate a project-level Azure guideline or configuration file being tracked in the repo.
+
+User impact
+-----------
+
+- Confusion: contributors believe the repo includes Azure-specific guidance or that the project depends on Azure services.
+- Friction: workflow and onboarding docs (CONTRIBUTING.md, `.specify` helpers) may need clarification to prevent future confusion.
+- Risk: low functional risk, but medium documentation/UX impact — contributors may waste time investigating false leads or hesitate to use automation that appears to assume Azure.
+
+Expected vs Actual
+-------------------
+
+Expected behavior
+  - Project documentation and top-level files clearly indicate required cloud providers or that the repo is cloud-agnostic.
+  - No stray provider-specific guide should appear without explicit labeling as a template.
+
+Actual behavior
+  - A document or reference to Azure was visible to reviewers or created confusion; searches in the current working tree show no tracked Azure-specific docs, only node_modules artifacts.
+
+Acceptance criteria for resolution
+---------------------------------
+
+- Confirm the repository contains no tracked Azure-specific guideline files (excluding templates), or identify the commit/branch that introduced it.
+- Update docs to clarify cloud provider expectations (or explicitly mark template files as templates).
+- Add a short note to `CONTRIBUTING.md` explaining `.specify` helpers will not create cloud-provider-specific guidance unless requested.
+
+Triage checklist (ordered)
+--------------------------
+
+1) Reproduce the confusion locally (read-only):
+
+```bash
+cd /home/burt/specify-playground
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "azure" . || true
+```
+
+2) Search git history for any commit adding or updating files that mention Azure:
+
+```bash
+git -C /home/burt/specify-playground log --all --pretty=format:%h\ %an\ %ad\ %s --grep=azure || true
+git -C /home/burt/specify-playground grep -n "azure" $(git rev-list --all) || true
+```
+
+3) If a commit or branch introduced an Azure doc, note the author and context and decide: delete, move to templates, or annotate.
+
+4) If no commit contains an Azure doc, but maintainers still see generated artifacts in some workflows, audit automation (CI, bots, assistants) for steps that might inject templated docs.
+
+5) Update documentation to reduce future confusion (one of: remove doc, move to templates, annotate as template, or add CONTRIBUTING note).
+
+Remediation recommendations
+-------------------------
+
+- Remove: if the Azure doc is irrelevant, delete the file and add a short changelog note explaining removal.
+- Move: if it's a useful generic template, move it to `docs/templates/` or `.specify/templates/` and add a header explaining it's a template and not used by default.
+- Annotate: add front-matter or a README near the file that clarifies its purpose and that the project itself is cloud-agnostic.
+
+Suggested commit message examples
+---------------------------------
+
+- docs: remove stray Azure guideline (confusing; template-only)
+- docs: move Azure guideline to templates/ and add README clarifying it's not used by default
+
+Minimal reproduction for maintainers
+-----------------------------------
 
 Suggested triage
 ----------------
