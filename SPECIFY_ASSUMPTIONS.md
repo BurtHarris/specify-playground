@@ -198,6 +198,34 @@ Multi-feature workflow
 5. Implement independently
    - Each feature branch now contains spec, plan, and tasks. Implement and land code for one feature while leaving other feature branches untouched until they are ready to advance.
 
+Change propagation flow (spec → plan → tasks → implement)
+--------------------------------------------------------
+
+Diagram (linear flow):
+
+spec.md  --->  plan.md + supporting artifacts  --->  tasks.md  --->  implementation
+
+Edit scenarios and guidance:
+
+- Editing before `/plan`:
+   - Edit `specs/XXX-feature/spec.md` freely in your feature branch.
+   - When you run `/plan`, the templates will consume the current `spec.md` and generate `plan.md` and supporting artifacts that reflect your edits.
+
+- Editing after `/plan`:
+   - Manual edit: update `spec.md` directly in the branch, then re-run `/plan` to regenerate `plan.md` and supporting docs.
+   - Agent-assisted: ask your assistant to revise the spec in the open `/specify` session, then re-run `/plan` to regenerate.
+
+- Key practice:
+   - Treat `plan.md` and `tasks.md` as derived, disposable artifacts. If the spec changes, regenerate downstream artifacts and commit the new versions so reviewers can see the evolution.
+
+Quick checklist when a spec changes:
+
+1. Edit `specs/XXX-feature/spec.md` on the feature branch.
+2. Run `/plan` and review the regenerated `plan.md` + supporting files.
+3. Run `/tasks` if task breakdown needs refresh.
+4. Run tests / linters where applicable and update implementation tasks as needed.
+5. Commit and push the regenerated artifacts with a message like: "Regenerate plan & tasks after spec update: XXX-feature".
+
 Post-/specify checklist (what to do after running `/specify`)
 -----------------------------------------------------------
 

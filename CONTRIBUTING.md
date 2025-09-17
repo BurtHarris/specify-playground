@@ -20,3 +20,23 @@ Post-/specify checklist
 
 Notes
 - This CONTRIBUTING file is intentionally minimal; refer to `SPECIFY_ASSUMPTIONS.md` for detailed assumptions, templates, and governance notes.
+
+Commit message template
+-----------------------
+
+Use a short, consistent commit message when adding or regenerating spec artifacts. Example:
+
+<type>: <short description> [spec: XXX-feature]
+
+Examples:
+- feat: add initial spec for XXX-feature [spec: 001-xxx-feature]
+- docs: regenerate plan & tasks after spec update [spec: 001-xxx-feature]
+
+PR checklist (basic)
+--------------------
+
+- [ ] This PR targets the correct feature branch (e.g., `001-xxx-feature`).
+- [ ] `specs/` files are present and updated as needed (spec.md, plan.md, tasks.md).
+- [ ] Generated artifacts were reviewed locally and linted where applicable.
+- [ ] Commit messages reference the spec ID in square brackets (e.g., `[spec: 001-xxx-feature]`).
+- [ ] Add a brief description in the PR body summarizing the spec -> plan -> tasks flow for reviewers.
