@@ -1,0 +1,25 @@
+# This file contains the main specification for the playground, defining the experiments and methodologies to be tested.
+
+# Example Specification for the Specify Playground
+
+experiment "Example Experiment" {
+    description "This experiment tests the basic functionality of the Specify methodology."
+
+    methodology "Methodology A" {
+        steps [
+            "Step 1: Initialize the environment",
+            "Step 2: Execute the main function",
+            "Step 3: Validate the output"
+        ]
+        expectedOutcome "The output should match the expected results defined in the specifications."
+    }
+
+    methodology "Methodology B" {
+        steps [
+            "Step 1: Set up the test conditions",
+            "Step 2: Run the test cases",
+            "Step 3: Collect and analyze the results"
+        ]
+        expectedOutcome "The results should be consistent with the defined criteria."
+    }
+}
