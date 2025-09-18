@@ -1,59 +1,119 @@
 """
-ResultExporter service for exporting scan results in various formats.
+ResultExporter service for exporting scan results to various formats.
 
-This service provides JSON and YAML export functionality with proper
-schema validation and formatting.
+This service handles exporting scan results to JSON and YAML formats
+with proper error handling and validation.
 """
 
 import json
-import os
 import yaml
 from pathlib import Path
 from typing import Dict, Any
-from datetime import datetime
+import errno
 
 from ..models.scan_result import ScanResult
 
 
 class DiskSpaceError(Exception):
-    """Raised when there is insufficient disk space for export operations."""
+    """Raised when there is insufficient disk space to write the output file."""
     pass
 
 
 class ResultExporter:
-    """Service for exporting scan results in various formats."""
+    """Service for exporting scan results to various output formats."""
     
     def export_json(self, result: ScanResult, output_path: Path) -> None:
-        """
-        Exports scan results to JSON format.
-        
-        Args:
-            result: Complete scan results
-            output_path: Path where JSON file should be written
-            
-        Raises:
-            PermissionError: If cannot write to output path
-            DiskSpaceError: If insufficient disk space
-            
-        Contract:
-            - MUST create valid JSON according to schema
-            - MUST handle Unicode characters in paths
-            - MUST include all result data (metadata, duplicates, matches)
-            - MUST format file sizes in human-readable form
-            - MUST use ISO 8601 format for timestamps
-        """
-        self._validate_output_path(output_path)
-        
-        # Convert result to dictionary format
-        data = self._convert_result_to_dict(result)
+        """Export scan results to JSON format."""
+        data = self._prepare_export_data(result)
         
         try:
-            # Ensure parent directory exists
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write JSON with proper encoding for Unicode support
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except OSError as e:
             if e.errno == 28:  # ENOSPC - No space left on device
-                raise DiskSpaceError(f\"Insufficient disk space to write {output_path}\") from e\n            elif e.errno == 13:  # EACCES - Permission denied\n                raise PermissionError(f\"Cannot write to {output_path}: Permission denied\") from e\n            else:\n                raise\n    \n    def export_yaml(self, result: ScanResult, output_path: Path) -> None:\n        \"\"\"\n        Exports scan results to YAML format.\n        \n        Args:\n            result: Complete scan results\n            output_path: Path where YAML file should be written\n            \n        Raises:\n            PermissionError: If cannot write to output path\n            DiskSpaceError: If insufficient disk space\n            \n        Contract:\n            - MUST create valid YAML according to schema\n            - MUST handle Unicode characters in paths\n            - MUST include all result data (metadata, duplicates, matches)\n            - MUST format file sizes in human-readable form\n            - MUST use ISO 8601 format for timestamps\n            - MUST be human-readable with proper formatting\n        \"\"\"\n        self._validate_output_path(output_path)\n        \n        # Convert result to dictionary format\n        data = self._convert_result_to_dict(result)\n        \n        try:\n            # Ensure parent directory exists\n            output_path.parent.mkdir(parents=True, exist_ok=True)\n            \n            # Write YAML with proper encoding for Unicode support\n            with open(output_path, 'w', encoding='utf-8') as f:\n                yaml.dump(data, f, default_flow_style=False, allow_unicode=True, indent=2)\n        except OSError as e:\n            if e.errno == 28:  # ENOSPC - No space left on device\n                raise DiskSpaceError(f\"Insufficient disk space to write {output_path}\") from e\n            elif e.errno == 13:  # EACCES - Permission denied\n                raise PermissionError(f\"Cannot write to {output_path}: Permission denied\") from e\n            else:\n                raise\n    \n    def format_text_output(self, result: ScanResult, verbose: bool = False) -> str:\n        \"\"\"\n        Formats scan results as human-readable text.\n        \n        Args:\n            result: Complete scan results\n            verbose: Whether to include detailed information\n            \n        Returns:\n            Formatted text string\n            \n        Contract:\n            - MUST include summary statistics\n            - MUST group duplicates clearly\n            - MUST show potential space savings\n            - MUST list errors if any occurred\n            - MUST format file sizes in human-readable units\n        \"\"\"\n        lines = []\n        \n        # Header\n        lines.append(\"Video Duplicate Scanner Results\")\n        lines.append(\"=\" * 35)\n        lines.append(\"\")\n        \n        # Summary statistics\n        metadata = result.metadata\n        lines.append(\"Summary:\")\n        lines.append(f\"  Scan started:     {self._format_timestamp(metadata.start_time)}\")\n        lines.append(f\"  Scan completed:   {self._format_timestamp(metadata.end_time)}\")\n        lines.append(f\"  Duration:         {self._format_duration(metadata.duration)}\")\n        lines.append(f\"  Files scanned:    {metadata.files_scanned:,}\")\n        lines.append(f\"  Duplicate groups: {len(result.duplicate_groups)}\")\n        lines.append(f\"  Potential matches: {len(result.potential_match_groups)}\")\n        \n        if metadata.errors:\n            lines.append(f\"  Errors:           {len(metadata.errors)}\")\n        \n        lines.append(\"\")\n        \n        # Duplicate groups\n        if result.duplicate_groups:\n            lines.append(\"Duplicate Files:\")\n            lines.append(\"-\" * 16)\n            \n            total_wasted_space = 0\n            \n            for i, group in enumerate(result.duplicate_groups, 1):\n                files = group.files\n                if len(files) < 2:\n                    continue\n                \n                # Calculate wasted space (all but one file)\n                file_size = files[0].size\n                wasted_space = file_size * (len(files) - 1)\n                total_wasted_space += wasted_space\n                \n                lines.append(f\"\\nGroup {i}: {len(files)} files ({self._format_file_size(file_size)} each)\")\n                lines.append(f\"  Wasted space: {self._format_file_size(wasted_space)}\")\n                \n                if verbose:\n                    lines.append(f\"  Hash: {files[0].hash or 'Not computed'}\")\n                \n                for file in files:\n                    prefix = \"    \"\n                    lines.append(f\"{prefix}{file.path}\")\n                    if verbose and file.last_modified:\n                        lines.append(f\"{prefix}  Modified: {self._format_timestamp(file.last_modified)}\")\n            \n            lines.append(\"\")\n            lines.append(f\"Total wasted space: {self._format_file_size(total_wasted_space)}\")\n        else:\n            lines.append(\"No duplicate files found.\")\n        \n        lines.append(\"\")\n        \n        # Potential matches\n        if result.potential_match_groups:\n            lines.append(\"Potential Matches (Similar Names):\")\n            lines.append(\"-\" * 35)\n            \n            for i, group in enumerate(result.potential_match_groups, 1):\n                files = group.files\n                if len(files) < 2:\n                    continue\n                \n                lines.append(f\"\\nGroup {i}: {len(files)} files\")\n                \n                for file in files:\n                    similarity = group.similarity_scores.get(file, 0.0)\n                    lines.append(f\"    {file.path} (similarity: {similarity:.1%})\")\n        else:\n            lines.append(\"No potential matches found.\")\n        \n        # Errors\n        if metadata.errors:\n            lines.append(\"\")\n            lines.append(\"Errors:\")\n            lines.append(\"-\" * 7)\n            \n            for error in metadata.errors:\n                lines.append(f\"  {error}\")\n        \n        return \"\\n\".join(lines)\n    \n    def _validate_output_path(self, output_path: Path) -> None:\n        \"\"\"\n        Validate that the output path is writable.\n        \n        Args:\n            output_path: Path to validate\n            \n        Raises:\n            PermissionError: If path is not writable\n        \"\"\"\n        # Check if parent directory exists and is writable\n        parent_dir = output_path.parent\n        \n        if not parent_dir.exists():\n            # Try to create parent directory\n            try:\n                parent_dir.mkdir(parents=True, exist_ok=True)\n            except PermissionError as e:\n                raise PermissionError(f\"Cannot create directory {parent_dir}: Permission denied\") from e\n        \n        if not parent_dir.is_dir():\n            raise PermissionError(f\"Parent path {parent_dir} is not a directory\")\n        \n        # Check if we can write to the parent directory\n        if not os.access(parent_dir, os.W_OK):\n            raise PermissionError(f\"Cannot write to directory {parent_dir}\")\n    \n    def _convert_result_to_dict(self, result: ScanResult) -> Dict[str, Any]:\n        \"\"\"\n        Convert ScanResult to dictionary format for JSON/YAML export.\n        \n        Args:\n            result: Scan result to convert\n            \n        Returns:\n            Dictionary representation of the result\n        \"\"\"\n        data = {\n            \"metadata\": {\n                \"start_time\": self._format_timestamp_iso(result.metadata.start_time),\n                \"end_time\": self._format_timestamp_iso(result.metadata.end_time),\n                \"duration\": result.metadata.duration,\n                \"files_scanned\": result.metadata.files_scanned,\n                \"directories_scanned\": result.metadata.directories_scanned,\n                \"errors\": result.metadata.errors\n            },\n            \"duplicate_groups\": [],\n            \"potential_match_groups\": []\n        }\n        \n        # Add duplicate groups\n        for group in result.duplicate_groups:\n            group_data = {\n                \"hash\": group.files[0].hash if group.files and group.files[0].hash else None,\n                \"size\": group.files[0].size if group.files else 0,\n                \"size_human\": self._format_file_size(group.files[0].size) if group.files else \"0 B\",\n                \"file_count\": len(group.files),\n                \"files\": []\n            }\n            \n            for file in group.files:\n                file_data = {\n                    \"path\": str(file.path),\n                    \"size\": file.size,\n                    \"size_human\": self._format_file_size(file.size),\n                    \"last_modified\": self._format_timestamp_iso(file.last_modified) if file.last_modified else None\n                }\n                group_data[\"files\"].append(file_data)\n            \n            data[\"duplicate_groups\"].append(group_data)\n        \n        # Add potential match groups\n        for group in result.potential_match_groups:\n            group_data = {\n                \"file_count\": len(group.files),\n                \"files\": []\n            }\n            \n            for file in group.files:\n                similarity = group.similarity_scores.get(file, 0.0)\n                file_data = {\n                    \"path\": str(file.path),\n                    \"size\": file.size,\n                    \"size_human\": self._format_file_size(file.size),\n                    \"similarity_score\": similarity,\n                    \"last_modified\": self._format_timestamp_iso(file.last_modified) if file.last_modified else None\n                }\n                group_data[\"files\"].append(file_data)\n            \n            data[\"potential_match_groups\"].append(group_data)\n        \n        return data\n    \n    def _format_file_size(self, size_bytes: int) -> str:\n        \"\"\"\n        Format file size in human-readable form.\n        \n        Args:\n            size_bytes: Size in bytes\n            \n        Returns:\n            Human-readable size string\n        \"\"\"\n        if size_bytes == 0:\n            return \"0 B\"\n        \n        units = ['B', 'KB', 'MB', 'GB', 'TB']\n        size = float(size_bytes)\n        unit_index = 0\n        \n        while size >= 1024 and unit_index < len(units) - 1:\n            size /= 1024\n            unit_index += 1\n        \n        if unit_index == 0:\n            return f\"{int(size)} {units[unit_index]}\"\n        else:\n            return f\"{size:.1f} {units[unit_index]}\"\n    \n    def _format_timestamp(self, timestamp: datetime) -> str:\n        \"\"\"\n        Format timestamp for human-readable display.\n        \n        Args:\n            timestamp: Datetime to format\n            \n        Returns:\n            Formatted timestamp string\n        \"\"\"\n        return timestamp.strftime(\"%Y-%m-%d %H:%M:%S\")\n    \n    def _format_timestamp_iso(self, timestamp: datetime) -> str:\n        \"\"\"\n        Format timestamp in ISO 8601 format for export.\n        \n        Args:\n            timestamp: Datetime to format\n            \n        Returns:\n            ISO 8601 formatted timestamp string\n        \"\"\"\n        return timestamp.isoformat()\n    \n    def _format_duration(self, duration: float) -> str:\n        \"\"\"\n        Format duration in human-readable form.\n        \n        Args:\n            duration: Duration in seconds\n            \n        Returns:\n            Formatted duration string\n        \"\"\"\n        if duration < 1:\n            return f\"{duration * 1000:.0f}ms\"\n        elif duration < 60:\n            return f\"{duration:.1f}s\"\n        elif duration < 3600:\n            minutes = int(duration // 60)\n            seconds = duration % 60\n            return f\"{minutes}m {seconds:.1f}s\"\n        else:\n            hours = int(duration // 3600)\n            minutes = int((duration % 3600) // 60)\n            seconds = duration % 60\n            return f\"{hours}h {minutes}m {seconds:.1f}s\""
+                raise DiskSpaceError(f"Insufficient disk space to write {output_path}") from e
+            elif e.errno == 13:  # EACCES - Permission denied
+                raise PermissionError(f"Cannot write to {output_path}: Permission denied") from e
+            else:
+                raise
+    
+    def export_yaml(self, result: ScanResult, output_path: Path) -> None:
+        """Export scan results to YAML format."""
+        data = self._prepare_export_data(result)
+        
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                yaml.dump(data, f, default_flow_style=False, allow_unicode=True, indent=2)
+        except OSError as e:
+            if e.errno == 28:  # ENOSPC - No space left on device
+                raise DiskSpaceError(f"Insufficient disk space to write {output_path}") from e
+            elif e.errno == 13:  # EACCES - Permission denied
+                raise PermissionError(f"Cannot write to {output_path}: Permission denied") from e
+            else:
+                raise
+    
+    def _prepare_export_data(self, result: ScanResult) -> Dict[str, Any]:
+        """Prepare scan result data for export."""
+        return {
+            "metadata": {
+                "directories_scanned": [str(path) for path in result.metadata.directories_scanned],
+                "total_files_found": result.metadata.total_files_found,
+                "total_size_bytes": result.metadata.total_size_bytes,
+                "total_size_human": self._format_file_size(result.metadata.total_size_bytes),
+                "scan_duration_seconds": result.metadata.scan_duration_seconds,
+                "scan_timestamp": result.metadata.scan_timestamp.isoformat()
+            },
+            "duplicate_groups": [
+                {
+                    "group_id": group.group_id,
+                    "file_count": len(group.files),
+                    "total_size_bytes": group.total_size,
+                    "total_size_human": self._format_file_size(group.total_size),
+                    "space_wasted_bytes": group.wasted_space,
+                    "space_wasted_human": self._format_file_size(group.wasted_space),
+                    "files": [
+                        {
+                            "path": str(file.path),
+                            "size_bytes": file.size,
+                            "size_human": self._format_file_size(file.size),
+                            "hash": file.hash if hasattr(file, '_hash') and file._hash else None
+                        }
+                        for file in group.files
+                    ]
+                }
+                for group in result.duplicate_groups
+            ],
+            "potential_matches": [
+                {
+                    "group_id": group.group_id,
+                    "similarity_score": group.similarity_score,
+                    "files": [
+                        {
+                            "path": str(file.path),
+                            "size_bytes": file.size,
+                            "size_human": self._format_file_size(file.size)
+                        }
+                        for file in group.files
+                    ]
+                }
+                for group in result.potential_matches
+            ]
+        }
+    
+    def _format_file_size(self, size_bytes: int) -> str:
+        """Format file size in human-readable format."""
+        if size_bytes == 0:
+            return "0 B"
+        
+        units = ["B", "KB", "MB", "GB", "TB"]
+        unit_index = 0
+        size = float(size_bytes)
+        
+        while size >= 1024 and unit_index < len(units) - 1:
+            size /= 1024
+            unit_index += 1
+        
+        if unit_index == 0:
+            return f"{int(size)} {units[unit_index]}"
+        else:
+            return f"{size:.1f} {units[unit_index]}"
