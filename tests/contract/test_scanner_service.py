@@ -16,8 +16,8 @@ import os
 
 # Import the VideoFileScanner service (will fail until implemented)
 try:
-    from services.video_file_scanner import VideoFileScanner
-    from models.video_file import VideoFile
+    from src.services.video_file_scanner import VideoFileScanner
+    from src.models.video_file import VideoFile
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class VideoFileScanner:
@@ -49,25 +49,25 @@ class TestVideoFileScannerContract:
         
     def create_test_files(self):
         """Create test file structure for consistent testing."""
-        # Root level video files
-        (Path(self.temp_dir) / "video1.mp4").touch()
-        (Path(self.temp_dir) / "video2.mkv").touch()
-        (Path(self.temp_dir) / "video3.mov").touch()
+        # Root level video files with content
+        (Path(self.temp_dir) / "video1.mp4").write_bytes(b"fake video content")
+        (Path(self.temp_dir) / "video2.mkv").write_bytes(b"fake video content")
+        (Path(self.temp_dir) / "video3.mov").write_bytes(b"fake video content")
         
         # Non-video files (should be ignored)
-        (Path(self.temp_dir) / "document.txt").touch()
-        (Path(self.temp_dir) / "image.jpg").touch()
+        (Path(self.temp_dir) / "document.txt").write_text("text content")
+        (Path(self.temp_dir) / "image.jpg").write_bytes(b"fake image")
         
         # Subdirectory with video files
         subdir = Path(self.temp_dir) / "subdir"
         subdir.mkdir()
-        (subdir / "sub_video1.mp4").touch()
-        (subdir / "sub_video2.mkv").touch()
+        (subdir / "sub_video1.mp4").write_bytes(b"fake video content")
+        (subdir / "sub_video2.mkv").write_bytes(b"fake video content")
         
         # Deep nested directory
         deep_dir = subdir / "deep" / "nested"
         deep_dir.mkdir(parents=True)
-        (deep_dir / "deep_video.mov").touch()
+        (deep_dir / "deep_video.mov").write_bytes(b"fake video content")
 
     @pytest.mark.contract
     def test_scan_directory_returns_iterator(self):
@@ -180,7 +180,7 @@ class TestVideoFileScannerContract:
         """Test: Skips files that cannot be accessed."""
         # Create a video file with no read permissions
         protected_file = Path(self.temp_dir) / "protected_video.mp4"
-        protected_file.touch()
+        protected_file.write_bytes(b"fake video content")
         protected_file.chmod(0o000)
         
         try:
@@ -213,7 +213,7 @@ class TestVideoFileScannerContract:
     def test_validate_file_checks_read_permissions(self):
         """Test: validate_file checks read permissions."""
         video_file = Path(self.temp_dir) / "test_video.mp4"
-        video_file.touch()
+        video_file.write_bytes(b"fake video content")
         
         # Should be valid initially
         assert self.scanner.validate_file(video_file) is True
@@ -241,9 +241,11 @@ class TestVideoFileScannerContract:
         txt_file = Path(self.temp_dir) / "test.txt"
         jpg_file = Path(self.temp_dir) / "test.jpg"
         
-        # Create all files
-        for file in [mp4_file, mkv_file, mov_file, txt_file, jpg_file]:
-            file.touch()
+        # Create all files with content
+        for file in [mp4_file, mkv_file, mov_file]:
+            file.write_bytes(b"fake video content")
+        for file in [txt_file, jpg_file]:
+            file.write_text("fake content")
         
         # Contract: MUST validate file extension
         assert self.scanner.validate_file(mp4_file) is True
@@ -274,7 +276,7 @@ class TestVideoFileScannerContract:
         """Test: Handles symbolic links according to configuration."""
         # Create a target video file
         target_file = Path(self.temp_dir) / "target.mp4"
-        target_file.touch()
+        target_file.write_bytes(b"fake video content")
         
         # Create symbolic link
         link_file = Path(self.temp_dir) / "link.mp4"
@@ -308,7 +310,7 @@ class TestVideoFileScannerContract:
         ]
         
         for filename in files_to_create:
-            (Path(self.temp_dir) / filename).touch()
+            (Path(self.temp_dir) / filename).write_bytes(b"fake video content")
         
         found_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         

@@ -2,7 +2,11 @@
 """
 DuplicateDetector Service Contract Tests for Video Duplicate Scanner
 
-These tests validate the DuplicateDetector service contract as specified in
+These tests valid            # Create VideoFile with just path, then set internal attributes
+            video_file = VideoFile(file_path)
+            video_file._size = size
+            video_file._hash = hash_value
+            files.append(video_file)he DuplicateDetector service contract as specified in
 specs/001-build-a-cli/contracts/service-apis.md
 
 All tests MUST FAIL initially (TDD requirement) until implementation is complete.
@@ -30,10 +34,10 @@ except ImportError:
             raise NotImplementedError("DuplicateDetector not yet implemented")
     
     class VideoFile:
-        def __init__(self, path, size=None, hash_value=None):
+        def __init__(self, path):
             self.path = Path(path)
-            self.size = size or 0
-            self.hash = hash_value
+            self.size = 0
+            self.hash = None
             
     class DuplicateGroup:
         def __init__(self, files):
@@ -112,7 +116,11 @@ class TestDuplicateDetectorContract:
                     hasher.update(chunk)
             hash_value = hasher.hexdigest()
             
-            files.append(VideoFile(file_path, size, hash_value))
+            # Create VideoFile with just path, then set internal attributes
+            video_file = VideoFile(file_path)
+            video_file._size = size
+            video_file._hash = hash_value
+            files.append(video_file)
             
         return files
 
@@ -323,7 +331,10 @@ class TestDuplicateDetectorContract:
             with open(file_path, 'wb') as f:
                 f.write(b"Unicode test content")
                 
-            unicode_files.append(VideoFile(file_path, file_path.stat().st_size))
+            # Create VideoFile with just path, then set internal size
+            video_file = VideoFile(file_path)
+            video_file._size = file_path.stat().st_size
+            unicode_files.append(video_file)
         
         # Contract: MUST handle Unicode filenames correctly
         try:

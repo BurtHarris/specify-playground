@@ -14,60 +14,20 @@ import yaml
 from pathlib import Path
 import tempfile
 import shutil
+
+# Import the classes under test
+from src.services.result_exporter import ResultExporter
+from src.models.video_file import VideoFile
+from src.models.duplicate_group import DuplicateGroup
+from src.models.potential_match_group import PotentialMatchGroup
+from src.models.scan_result import ScanResult
+from src.models.scan_metadata import ScanMetadata
+import shutil
 from datetime import datetime
 import os
 
-# Import the ResultExporter service (will fail until implemented)
-try:
-    from services.result_exporter import ResultExporter
-    from models.scan_result import ScanResult
-    from models.scan_metadata import ScanMetadata
-    from models.duplicate_group import DuplicateGroup
-    from models.potential_match_group import PotentialMatchGroup
-    from models.video_file import VideoFile
-except ImportError:
-    # Expected to fail initially - create stubs for testing
-    class ResultExporter:
-        def export_json(self, result, output_path):
-            raise NotImplementedError("ResultExporter not yet implemented")
-            
-        def export_yaml(self, result, output_path):
-            raise NotImplementedError("ResultExporter not yet implemented")
-            
-        def format_text_output(self, result, verbose=False):
-            raise NotImplementedError("ResultExporter not yet implemented")
-    
-    class VideoFile:
-        def __init__(self, path, size=1000, hash_value="abc123"):
-            self.path = Path(path)
-            self.size = size
-            self.hash = hash_value
-    
-    class DuplicateGroup:
-        def __init__(self, files):
-            self.files = files
-            
-    class PotentialMatchGroup:
-        def __init__(self, files, similarity_score=0.85):
-            self.files = files
-            self.similarity_score = similarity_score
-    
-    class ScanMetadata:
-        def __init__(self):
-            self.scan_date = datetime.now().isoformat() + "Z"
-            self.scanned_directory = "/test/path"
-            self.duration_seconds = 45.2
-            self.total_files_found = 10
-            self.total_files_processed = 9
-            self.recursive = True
-            self.errors = ["Test error"]
-    
-    class ScanResult:
-        def __init__(self):
-            self.metadata = ScanMetadata()
-            self.duplicate_groups = []
-            self.potential_matches = []
-            self.statistics = {"unique_files": 5, "duplicate_files": 4}
+# Test configuration
+TEST_TIMEOUT = 30  # seconds
 
 
 class TestResultExporterContract:
@@ -87,20 +47,44 @@ class TestResultExporterContract:
         
     def create_test_scan_result(self):
         """Create a comprehensive test scan result."""
-        # Create test video files
-        video1 = VideoFile(Path(self.temp_dir) / "video1.mp4", 1500000, "hash123")
-        video2 = VideoFile(Path(self.temp_dir) / "video2.mp4", 1500000, "hash123")
-        video3 = VideoFile(Path(self.temp_dir) / "similar_name.mkv", 2000000, "hash456")
-        video4 = VideoFile(Path(self.temp_dir) / "similar_name.mov", 2000000, "hash789")
+        # Create test video files first
+        video1_path = Path(self.temp_dir) / "video1.mp4"
+        video2_path = Path(self.temp_dir) / "video2.mp4"
+        video3_path = Path(self.temp_dir) / "similar_name.mkv"
+        video4_path = Path(self.temp_dir) / "similar_name.mov"
+        
+        # Create the actual files with content
+        video1_path.write_bytes(b"fake video content")
+        video2_path.write_bytes(b"fake video content")
+        video3_path.write_bytes(b"fake video content")
+        video4_path.write_bytes(b"fake video content")
+        
+        # Create VideoFile objects
+        video1 = VideoFile(video1_path)
+        video1._size = 1500000
+        video1._hash = "hash123"
+        
+        video2 = VideoFile(video2_path)
+        video2._size = 1500000
+        video2._hash = "hash123"
+        
+        video3 = VideoFile(video3_path)
+        video3._size = 2000000
+        video3._hash = "hash456"
+        
+        video4 = VideoFile(video4_path)
+        video4._size = 2000000
+        video4._hash = "hash789"
         
         # Create duplicate group
-        duplicate_group = DuplicateGroup([video1, video2])
+        duplicate_group = DuplicateGroup("hash123", [video1, video2])
         
         # Create potential match group
-        potential_group = PotentialMatchGroup([video3, video4], 0.95)
+        potential_group = PotentialMatchGroup("similar_name", 0.95, [video3, video4])
         
         # Create scan result
-        result = ScanResult()
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        result = ScanResult(metadata)
         result.duplicate_groups = [duplicate_group]
         result.potential_matches = [potential_group]
         
@@ -168,8 +152,14 @@ class TestResultExporterContract:
     def test_export_handles_unicode_characters_in_paths(self):
         """Test: Handles Unicode characters in file paths."""
         # Create scan result with Unicode paths
-        unicode_video = VideoFile(Path(self.temp_dir) / "тест_видео.mp4", 1000, "hash_unicode")
-        emoji_video = VideoFile(Path(self.temp_dir) / "video_🎬.mkv", 1000, "hash_emoji")
+        # Create VideoFile objects with path only, then set internal attributes
+        unicode_video = VideoFile(Path(self.temp_dir) / "тест_видео.mp4")
+        unicode_video._size = 1000
+        unicode_video._hash = "hash_unicode"
+        
+        emoji_video = VideoFile(Path(self.temp_dir) / "video_🎬.mkv")
+        emoji_video._size = 1000
+        emoji_video._hash = "hash_emoji"
         
         result = ScanResult()
         result.duplicate_groups = [DuplicateGroup([unicode_video, emoji_video])]
@@ -192,9 +182,18 @@ class TestResultExporterContract:
     def test_export_formats_file_sizes_human_readable(self):
         """Test: Formats file sizes in human-readable form."""
         # Create files with various sizes
-        small_file = VideoFile(Path(self.temp_dir) / "small.mp4", 1024, "hash1")  # 1 KB
-        medium_file = VideoFile(Path(self.temp_dir) / "medium.mp4", 1048576, "hash2")  # 1 MB
-        large_file = VideoFile(Path(self.temp_dir) / "large.mp4", 1073741824, "hash3")  # 1 GB
+        # Create VideoFile objects with path only, then set internal attributes
+        small_file = VideoFile(Path(self.temp_dir) / "small.mp4")
+        small_file._size = 1024  # 1 KB
+        small_file._hash = "hash1"
+        
+        medium_file = VideoFile(Path(self.temp_dir) / "medium.mp4")
+        medium_file._size = 1048576  # 1 MB
+        medium_file._hash = "hash2"
+        
+        large_file = VideoFile(Path(self.temp_dir) / "large.mp4")
+        large_file._size = 1073741824  # 1 GB
+        large_file._hash = "hash3"
         
         result = ScanResult()
         result.duplicate_groups = [DuplicateGroup([small_file, medium_file, large_file])]
