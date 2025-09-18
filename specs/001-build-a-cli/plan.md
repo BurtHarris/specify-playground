@@ -45,17 +45,17 @@
 Video Duplicate Scanner CLI tool that efficiently identifies duplicate video files (mp4, mkv, mov) using a two-stage detection process: file size comparison followed by hash computation for files of identical size. Features include recursive directory scanning, fuzzy name matching for potential duplicates, JSON export capabilities, and comprehensive error handling.
 
 ## Technical Context
-**Language/Version**: Python 3.12  
-**Primary Dependencies**: Click (CLI framework), hashlib (file hashing), pathlib (file operations), json (export), fuzzywuzzy (name similarity)  
+**Language/Version**: Python 3.12+ (requirement validated at runtime)  
+**Primary Dependencies**: Click (CLI framework), hashlib (blake2b hashing), pathlib (file operations), PyYAML (YAML export), json (JSON compatibility), fuzzywuzzy (name similarity)  
 **Storage**: File system operations (no database required)  
 **Testing**: pytest, pytest-mock for unit testing  
 **Target Platform**: Cross-platform (Linux, macOS, Windows)
 **Project Type**: Single CLI application  
-**Performance Goals**: Efficient memory usage during hashing, progress reporting for large scans  
-**Constraints**: Two-stage detection (size then hash), graceful error handling, symbolic link handling  
+**Performance Goals**: Efficient memory usage during blake2b hashing (streaming for large files), progress reporting for large scans  
+**Constraints**: Two-stage detection (size then hash), graceful error handling, symbolic link handling (skip if target files already in scan)  
 **Scale/Scope**: Handle large video collections (thousands of files), recursive directory traversal
 
-**User-Provided Context**: Include a simple check for Python version in the plan to ensure Python 3.12+ compatibility.
+**User-Provided Context**: Include a simple check for Python version in the plan to ensure Python 3.12+ compatibility. Use YAML as primary export format for human readability with JSON compatibility.
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
@@ -206,24 +206,6 @@ ios/ or android/
 |-----------|------------|-------------------------------------|
 | [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
 | [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
-
-
-## Progress Tracking
-*This checklist is updated during execution flow*
-
-**Phase Status**:
-- [ ] Phase 0: Research complete (/plan command)
-- [ ] Phase 1: Design complete (/plan command)
-- [ ] Phase 2: Task planning complete (/plan command - describe approach only)
-- [ ] Phase 3: Tasks generated (/tasks command)
-- [ ] Phase 4: Implementation complete
-- [ ] Phase 5: Validation passed
-
-**Gate Status**:
-- [ ] Initial Constitution Check: PASS
-- [ ] Post-Design Constitution Check: PASS
-- [ ] All NEEDS CLARIFICATION resolved
-- [ ] Complexity deviations documented
 
 ---
 *Based on Constitution v2.1.1 - See `/memory/constitution.md`*
