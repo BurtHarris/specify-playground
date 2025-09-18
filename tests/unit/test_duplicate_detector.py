@@ -202,19 +202,21 @@ class TestDuplicateDetector:
         # Create files with similar names but different extensions
         name_base = "movie_title_2023"
         
+        # Create first file and close before renaming (Windows compatibility)
         with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as f:
             f.write(b"content1")
-            # Rename to have similar base name
-            new_path = f.name.replace('.mp4', '') + f'_{name_base}.mp4'
-            Path(f.name).rename(new_path)
-            files.append(Path(new_path))
+            temp_path = Path(f.name)
+        new_path = str(temp_path).replace('.mp4', '') + f'_{name_base}.mp4'
+        temp_path.rename(new_path)
+        files.append(Path(new_path))
         
+        # Create second file and close before renaming (Windows compatibility)
         with tempfile.NamedTemporaryFile(suffix='.mkv', delete=False) as f:
-            f.write(b"content2") 
-            # Rename to have similar base name
-            new_path = f.name.replace('.mkv', '') + f'_{name_base}.mkv'
-            Path(f.name).rename(new_path)
-            files.append(Path(new_path))
+            f.write(b"content2")
+            temp_path = Path(f.name)
+        new_path = str(temp_path).replace('.mkv', '') + f'_{name_base}.mkv'
+        temp_path.rename(new_path)
+        files.append(Path(new_path))
         
         try:
             for file_path in files:

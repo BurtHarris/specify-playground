@@ -94,7 +94,9 @@ class TestVideoFile:
         repr_str = repr(video_file)
         
         assert "VideoFile" in repr_str
-        assert str(temp_video_file.resolve()) in repr_str
+        # Normalize path separators for cross-platform compatibility
+        expected_path = str(temp_video_file.resolve()).replace('\\', '/')
+        assert expected_path in repr_str or str(temp_video_file.resolve()) in repr_str
         assert ".mp4" in repr_str
     
     def test_compute_hash_blake2b(self, temp_video_file):

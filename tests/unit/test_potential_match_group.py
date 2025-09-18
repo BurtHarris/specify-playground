@@ -26,12 +26,15 @@ class TestPotentialMatchGroup:
         file_names = ['movie.mp4', 'movie2.mkv', 'movieX.mov']
         
         for name in file_names:
+            # Create temp file and close it before renaming (Windows compatibility)
             with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as f:
                 f.write(name.encode())  # Different content for each
                 temp_path = Path(f.name)
-                final_path = temp_path.parent / name
-                temp_path.rename(final_path)
-                files.append(final_path)
+            
+            # Now rename the closed file
+            final_path = temp_path.parent / name
+            temp_path.rename(final_path)
+            files.append(final_path)
         
         for file_path in files:
             video_files.append(VideoFile(file_path))
