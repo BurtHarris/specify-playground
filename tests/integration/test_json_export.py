@@ -364,11 +364,11 @@ class TestJSONExportIntegration:
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         duplicate_groups = self.detector.find_duplicates(scanned_files)
         
-        scan_result = ScanResult()
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        metadata.total_files_found = len(scanned_files)
+        metadata.total_files_processed = len(scanned_files)
+        scan_result = ScanResult(metadata)
         scan_result.duplicate_groups = duplicate_groups
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
-        scan_result.metadata.total_files_found = len(scanned_files)
-        scan_result.metadata.total_files_processed = len(scanned_files)
         
         # Calculate statistics
         total_duplicates = sum(len(group.files) for group in duplicate_groups)
@@ -417,10 +417,10 @@ class TestJSONExportIntegration:
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         duplicate_groups = self.detector.find_duplicates(scanned_files)
         
-        scan_result = ScanResult()
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        metadata.total_files_found = len(scanned_files)
+        scan_result = ScanResult(metadata)
         scan_result.duplicate_groups = duplicate_groups
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
-        scan_result.metadata.total_files_found = len(scanned_files)
         
         # Should handle large dataset without issues
         self.exporter.export_json(scan_result, export_file)

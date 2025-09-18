@@ -62,7 +62,8 @@ class ResultExporter:
                 "duration_seconds": result.metadata.duration_seconds,
                 "total_files_found": result.metadata.total_files_found,
                 "total_files_processed": result.metadata.total_files_processed,
-                "recursive": result.metadata.recursive
+                "recursive": result.metadata.recursive,
+                "errors": result.metadata.errors if result.metadata.errors else []
             },
             "duplicate_groups": [
                 {
@@ -111,7 +112,8 @@ class ResultExporter:
                 "duration_seconds": result.metadata.duration_seconds,
                 "total_files_found": result.metadata.total_files_found,
                 "total_files_processed": result.metadata.total_files_processed,
-                "recursive": result.metadata.recursive
+                "recursive": result.metadata.recursive,
+                "errors": result.metadata.errors if result.metadata.errors else []
             },
             "results": {
                 "duplicate_groups": [
