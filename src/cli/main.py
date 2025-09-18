@@ -293,7 +293,7 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
             
             for i, group in enumerate(scan_result.duplicate_groups, 1):
                 click.echo(f"\n{warning(f'Group {i}')}: {len(group.files)} files")
-                click.echo(f"  Size: {format_size(group.total_size)} each")
+                click.echo(f"  Size: {format_size(group.file_size)} each")
                 click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
                 
                 for file in group.files:

@@ -66,6 +66,11 @@ class DuplicateGroup:
         return sum(file.size for file in self._files)
     
     @property
+    def file_size(self) -> int:
+        """Size of each individual file in this group (all files are identical)."""
+        return next(iter(self._files)).size if self._files else 0
+    
+    @property
     def wasted_space(self) -> int:
         """
         Amount of disk space wasted by duplicates.
@@ -77,7 +82,7 @@ class DuplicateGroup:
             return 0
         
         # All files have the same size (same content), so use any file's size
-        single_file_size = next(iter(self._files)).size if self._files else 0
+        single_file_size = self.file_size
         return single_file_size * (len(self._files) - 1)
     
     @property
