@@ -59,7 +59,7 @@ A user with a large video collection wants to identify and manage duplicate vide
 1. **Given** a directory with 3 identical MP4 files and 2 unique MKV files, **When** user runs the scanner, **Then** the tool identifies the 3 MP4s as duplicates and reports 2 unique files
 2. **Given** a directory with files of different sizes, **When** user runs the scanner, **Then** the tool reports no duplicates without computing any hashes
 3. **Given** a directory with 2 files of same size but different content, **When** user runs the scanner, **Then** the tool computes hashes and correctly reports no duplicates
-4. **Given** duplicate files found, **When** user chooses JSON export, **Then** results are saved in structured JSON format with file paths and metadata
+4. **Given** duplicate files found, **When** user chooses export, **Then** results are saved in YAML format by default or JSON format when specified, with file paths and metadata
 5. **Given** files with similar names but different extensions, **When** user runs the scanner, **Then** the tool identifies them as potential matches in a separate section for user review
 6. **Given** a directory path that doesn't exist, **When** user runs the scanner, **Then** the tool displays a clear error message
 
@@ -77,24 +77,28 @@ A user with a large video collection wants to identify and manage duplicate vide
 - **FR-002**: System MUST scan subdirectories recursively by default
 - **FR-003**: System MUST provide a command-line option to disable recursive scanning
 - **FR-004**: System MUST compare file sizes as the first stage of duplicate detection
-- **FR-004**: System MUST compute file hashes only for files with identical sizes
-- **FR-005**: System MUST group files with identical hashes as duplicates
-- **FR-006**: System MUST display duplicate groups in a clear, readable format
-- **FR-007**: System MUST allow exporting scan results to JSON format
-- **FR-008**: System MUST handle files that cannot be read due to permission issues gracefully
-- **FR-009**: System MUST validate that the provided directory path exists and is accessible
-- **FR-010**: System MUST ignore non-video files during scanning
-- **FR-011**: System MUST [NEEDS CLARIFICATION: follow symbolic links or treat them as separate entities?]
-- **FR-012**: System MUST display progress information for long-running scans
-- **FR-013**: System MUST provide help/usage information when requested
-- **FR-014**: System MUST support specifying custom output file path for JSON export
+- **FR-005**: System MUST compute file hashes only for files with identical sizes
+- **FR-006**: System MUST group files with identical hashes as duplicates
+- **FR-007**: System MUST display duplicate groups in a clear, readable format
+- **FR-008**: System MUST allow exporting scan results to YAML format by default
+- **FR-009**: System MUST support JSON export format for backward compatibility
+- **FR-010**: System MUST handle files that cannot be read due to permission issues gracefully
+- **FR-011**: System MUST validate that the provided directory path exists and is accessible
+- **FR-012**: System MUST ignore non-video files during scanning
+- **FR-013**: System MUST skip symbolic links during scanning if their target files are included in the scan
+- **FR-014**: System MUST display progress information for long-running scans
+- **FR-015**: System MUST provide help/usage information when requested
+- **FR-016**: System MUST support specifying custom output file path for export
+- **FR-017**: System MUST perform fuzzy name comparison to identify files with similar names across different extensions
+- **FR-018**: System MUST report potential matches from fuzzy name comparison in a separate section for user review
+- **FR-019**: System MUST distinguish between confirmed duplicates (identical hashes) and potential matches (similar names)
 
 ### Key Entities *(include if feature involves data)*
 - **Video File**: Represents a video file with path, size, hash (computed when needed), and extension
 - **Duplicate Group**: A collection of video files that are identical (same hash)
 - **Potential Match Group**: A collection of video files with similar names but different extensions that may represent the same content
 - **Scan Result**: Contains all duplicate groups and potential match groups found during a directory scan, with metadata like scan duration and file counts
-- **Export Format**: JSON structure containing scan results with file paths, sizes, hashes, grouping information, and potential matches from fuzzy name comparison
+- **Export Format**: YAML structure (default) or JSON structure containing scan results with file paths, sizes, hashes, grouping information, and potential matches from fuzzy name comparison
 
 ---
 
