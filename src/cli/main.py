@@ -305,7 +305,7 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
         click.echo(f"\n{header(f'=== Potential Matches ({len(scan_result.potential_match_groups)}) ===')}")
         
         for i, group in enumerate(scan_result.potential_match_groups, 1):
-            click.echo(f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.similarity_score:.2f})")
+            click.echo(f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})")
             
             for file in group.files:
                 click.echo(f"    {file.path} ({format_size(file.size)})")

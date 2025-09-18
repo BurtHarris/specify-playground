@@ -59,16 +59,19 @@ class DuplicateDetector:
             # Compute hashes for all files in this size group
             hash_groups = defaultdict(list)
             for video_file in file_list:
-                # Trigger hash computation if not already done
-                file_hash = video_file.hash
-                if file_hash:  # Only group files with valid hashes
+                try:
+                    # Compute hash if not already done
+                    file_hash = video_file.compute_hash()
                     hash_groups[file_hash].append(video_file)
+                except (OSError, PermissionError):
+                    # Skip files that can't be read
+                    continue
             
             # Create duplicate groups for hash groups with multiple files
-            for files_with_same_hash in hash_groups.values():
+            for file_hash, files_with_same_hash in hash_groups.items():
                 if len(files_with_same_hash) >= 2:
                     # Preserve file order within groups
-                    duplicate_group = DuplicateGroup(files_with_same_hash)
+                    duplicate_group = DuplicateGroup(file_hash, files_with_same_hash)
                     duplicate_groups.append(duplicate_group)
         
         return duplicate_groups
@@ -128,7 +131,14 @@ class DuplicateDetector:
                 # Set similarity score for the base file
                 similarity_scores[file1] = 1.0
                 
-                potential_group = PotentialMatchGroup(similar_files, similarity_scores)
+                # Use the base filename as the group name
+                base_name = self._extract_filename_for_comparison(file1.path)
+                potential_group = PotentialMatchGroup(base_name, threshold)
+                
+                # Add all similar files to the group
+                for file in similar_files:
+                    potential_group.add_file(file, similarity_scores[file])
+                    
                 potential_groups.append(potential_group)
                 
                 # Mark all files in this group as processed

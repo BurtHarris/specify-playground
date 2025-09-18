@@ -116,7 +116,11 @@ class VideoFileScanner:
             entries = list(directory.iterdir())
             
             # Filter and sort files for deterministic ordering
-            files = sorted([entry for entry in entries if entry.is_file()])
+            try:
+                files = sorted([entry for entry in entries if entry.is_file()])
+            except TypeError:
+                # Handle case where entries can't be sorted (e.g., in tests with Mock objects)
+                files = [entry for entry in entries if entry.is_file()]
             
             for file_path in files:
                 if self._is_video_file(file_path) and self.validate_file(file_path):

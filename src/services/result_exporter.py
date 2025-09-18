@@ -56,16 +56,16 @@ class ResultExporter:
         """Prepare scan result data for export."""
         return {
             "metadata": {
-                "directories_scanned": [str(path) for path in result.metadata.directories_scanned],
+                "directories_scanned": [str(path) for path in result.metadata.scan_paths],
                 "total_files_found": result.metadata.total_files_found,
-                "total_size_bytes": result.metadata.total_size_bytes,
-                "total_size_human": self._format_file_size(result.metadata.total_size_bytes),
-                "scan_duration_seconds": result.metadata.scan_duration_seconds,
-                "scan_timestamp": result.metadata.scan_timestamp.isoformat()
+                "total_size_bytes": result.metadata.total_size_scanned,
+                "total_size_human": self._format_file_size(result.metadata.total_size_scanned),
+                "scan_duration_seconds": result.metadata.duration_seconds,
+                "scan_timestamp": result.metadata.start_time.isoformat() if result.metadata.start_time else None
             },
             "duplicate_groups": [
                 {
-                    "group_id": group.group_id,
+                    "group_id": group.hash_value,
                     "file_count": len(group.files),
                     "total_size_bytes": group.total_size,
                     "total_size_human": self._format_file_size(group.total_size),
@@ -85,8 +85,8 @@ class ResultExporter:
             ],
             "potential_matches": [
                 {
-                    "group_id": group.group_id,
-                    "similarity_score": group.similarity_score,
+                    "group_id": group.base_name,
+                    "similarity_score": group.average_similarity,
                     "files": [
                         {
                             "path": str(file.path),
@@ -96,7 +96,7 @@ class ResultExporter:
                         for file in group.files
                     ]
                 }
-                for group in result.potential_matches
+                for group in result.potential_match_groups
             ]
         }
     
