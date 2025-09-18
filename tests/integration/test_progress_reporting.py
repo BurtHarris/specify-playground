@@ -17,18 +17,22 @@ from pathlib import Path
 from io import StringIO
 from unittest.mock import patch
 
-# Import modules for integration testing (will fail until implemented)
+# Import modules for integration testing
 try:
-    from services.video_file_scanner import VideoFileScanner
-    from services.duplicate_detector import DuplicateDetector
-    from lib.progress_reporter import ProgressReporter
-    from cli.main import main
+    from src.services.video_file_scanner import VideoFileScanner
+    from src.services.duplicate_detector import DuplicateDetector
+    from src.services.progress_reporter import ProgressReporter
+    from src.cli.main import main
     from click.testing import CliRunner
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class VideoFileScanner:
         def scan_directory(self, directory, recursive=True):
             raise NotImplementedError("VideoFileScanner not yet implemented")
+    
+    class DuplicateDetector:
+        def detect_duplicates(self, files):
+            raise NotImplementedError("DuplicateDetector not yet implemented")
     
     class DuplicateDetector:
         def find_duplicates(self, files):

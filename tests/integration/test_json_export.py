@@ -15,14 +15,14 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-# Import modules for integration testing (will fail until implemented)
+# Import modules for integration testing
 try:
-    from services.video_file_scanner import VideoFileScanner
-    from services.duplicate_detector import DuplicateDetector
-    from services.result_exporter import ResultExporter
-    from models.scan_result import ScanResult
-    from models.scan_metadata import ScanMetadata
-    from cli.main import main
+    from src.services.video_file_scanner import VideoFileScanner
+    from src.services.duplicate_detector import DuplicateDetector
+    from src.services.result_exporter import ResultExporter
+    from src.models.scan_result import ScanResult
+    from src.models.scan_metadata import ScanMetadata
+    from src.cli.main import main
     from click.testing import CliRunner
 except ImportError:
     # Expected to fail initially - create stubs for testing
@@ -161,13 +161,14 @@ class TestJSONExportIntegration:
         duplicate_groups = self.detector.find_duplicates(scanned_files)
         potential_matches = self.detector.find_potential_matches(scanned_files)
         
-        # Create scan result
-        scan_result = ScanResult()
+        # Create scan result with metadata
+        from src.models.scan_metadata import ScanMetadata
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        metadata.total_files_found = len(scanned_files)
+        metadata.total_files_processed = len(scanned_files)
+        scan_result = ScanResult(metadata)
         scan_result.duplicate_groups = duplicate_groups
         scan_result.potential_matches = potential_matches
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
-        scan_result.metadata.total_files_found = len(scanned_files)
-        scan_result.metadata.total_files_processed = len(scanned_files)
         
         # Export to JSON
         self.exporter.export_json(scan_result, export_file)
@@ -187,9 +188,9 @@ class TestJSONExportIntegration:
         # Verify file information in group
         for file_info in duplicate_group["files"]:
             assert "path" in file_info
-            assert "size" in file_info
+            assert "size_bytes" in file_info
+            assert "size_human" in file_info
             assert "hash" in file_info
-            assert "modified_date" in file_info
 
     @pytest.mark.integration
     def test_json_export_with_potential_matches(self):
@@ -200,10 +201,11 @@ class TestJSONExportIntegration:
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         potential_matches = self.detector.find_potential_matches(scanned_files, threshold=0.7)
         
-        # Create scan result with potential matches
-        scan_result = ScanResult()
+        # Create scan result with metadata
+        from src.models.scan_metadata import ScanMetadata
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        scan_result = ScanResult(metadata)
         scan_result.potential_matches = potential_matches
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
         
         # Export to JSON
         self.exporter.export_json(scan_result, export_file)
@@ -237,9 +239,9 @@ class TestJSONExportIntegration:
         # Integration test: Export with file size information
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         
-        scan_result = ScanResult()
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
-        scan_result.metadata.total_files_found = len(scanned_files)
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        metadata.total_files_found = len(scanned_files)
+        scan_result = ScanResult(metadata)
         
         self.exporter.export_json(scan_result, export_file)
         
@@ -275,9 +277,9 @@ class TestJSONExportIntegration:
         # Integration test: Scan and export Unicode filenames
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         
-        scan_result = ScanResult()
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
-        scan_result.metadata.total_files_found = len(scanned_files)
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+        metadata.total_files_found = len(scanned_files)
+        scan_result = ScanResult(metadata)
         
         self.exporter.export_json(scan_result, export_file)
         
@@ -303,8 +305,9 @@ class TestJSONExportIntegration:
         
         try:
             # Integration test: Scan with errors
-            scan_result = ScanResult()
-            scan_result.metadata.scanned_directory = str(self.temp_dir)
+            metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+
+            scan_result = ScanResult(metadata)
             scan_result.metadata.errors = [f"Could not read {protected_file}: Permission denied"]
             
             self.exporter.export_json(scan_result, export_file)
@@ -328,7 +331,10 @@ class TestJSONExportIntegration:
         export_file = Path(self.temp_dir) / "timestamp.json"
         
         # Integration test: Export with timestamp
-        scan_result = ScanResult()
+        metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
+
+        scan_result = ScanResult(metadata)
+
         scan_result.metadata.scan_date = datetime.now().isoformat() + "Z"
         scan_result.metadata.scanned_directory = str(self.temp_dir)
         

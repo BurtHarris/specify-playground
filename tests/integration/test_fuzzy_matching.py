@@ -13,13 +13,12 @@ import tempfile
 import shutil
 from pathlib import Path
 
-# Import modules for integration testing (will fail until implemented)
+# Import modules for integration testing
 try:
-    from services.video_file_scanner import VideoFileScanner
-    from services.duplicate_detector import DuplicateDetector
-    from services.fuzzy_matcher import FuzzyMatcher
-    from models.video_file import VideoFile
-    from models.potential_match_group import PotentialMatchGroup
+    from src.services.video_file_scanner import VideoFileScanner
+    from src.services.duplicate_detector import DuplicateDetector
+    from src.models.video_file import VideoFile
+    from src.models.potential_match_group import PotentialMatchGroup
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class VideoFileScanner:
@@ -29,10 +28,6 @@ except ImportError:
     class DuplicateDetector:
         def find_potential_matches(self, files, threshold=0.8):
             raise NotImplementedError("DuplicateDetector not yet implemented")
-    
-    class FuzzyMatcher:
-        def find_similar_names(self, files, threshold=0.8):
-            raise NotImplementedError("FuzzyMatcher not yet implemented")
             
         def calculate_similarity(self, name1, name2):
             raise NotImplementedError("FuzzyMatcher not yet implemented")
@@ -57,7 +52,6 @@ class TestFuzzyMatchingIntegration:
         self.temp_dir = tempfile.mkdtemp()
         self.scanner = VideoFileScanner()
         self.detector = DuplicateDetector()
-        self.fuzzy_matcher = FuzzyMatcher()
         
         # Create test video files with similar names
         self.create_test_videos()

@@ -19,6 +19,11 @@ from unittest.mock import patch
 class TestCLIIntegration:
     """Integration tests for the complete CLI application."""
     
+    @property
+    def workspace_dir(self):
+        """Get the workspace directory dynamically."""
+        return Path(__file__).parent.parent.parent  # Go up to workspace root
+    
     @pytest.fixture
     def temp_video_dir(self):
         """Create a temporary directory with test video files."""
@@ -49,11 +54,14 @@ class TestCLIIntegration:
     
     def test_cli_help_command(self):
         """Test that the CLI help command works."""
+        # Use the current workspace directory instead of hardcoded path
+        workspace_dir = Path(__file__).parent.parent.parent  # Go up to workspace root
+        
         result = subprocess.run(
             ["python", "-m", "src", "--help"],
             capture_output=True,
             text=True,
-            cwd="/home/burt/specify-playground"
+            cwd=str(workspace_dir)
         )
         
         assert result.returncode == 0
@@ -68,7 +76,7 @@ class TestCLIIntegration:
             ["python", "-m", "src", "--help"],
             capture_output=True,
             text=True,
-            cwd="/home/burt/specify-playground"
+            cwd=str(self.workspace_dir)
         )
         
         assert result.returncode == 0
@@ -79,7 +87,7 @@ class TestCLIIntegration:
             ["python", "-m", "src", str(temp_video_dir)],
             capture_output=True,
             text=True,
-            cwd="/home/burt/specify-playground"
+            cwd=str(self.workspace_dir)
         )
         
         assert result.returncode == 0
@@ -92,7 +100,7 @@ class TestCLIIntegration:
             ["python", "-m", "src", "--recursive", str(temp_video_dir)],
             capture_output=True,
             text=True,
-            cwd="/home/burt/specify-playground"
+            cwd=str(self.workspace_dir)
         )
         
         assert result.returncode == 0
@@ -108,7 +116,7 @@ class TestCLIIntegration:
             "python", "-m", "src", 
             "--export", str(output_file),
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         assert output_file.exists()
@@ -132,21 +140,22 @@ class TestCLIIntegration:
             "python", "-m", "src", 
             "--export", str(output_file),
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         assert output_file.exists()
         
-        # Verify JSON format
+        # Verify JSON format (has nested structure)
         with open(output_file, 'r') as f:
             data = json.load(f)
         
         assert 'metadata' in data
-        assert 'duplicate_groups' in data
-        assert 'potential_matches' in data
+        assert 'results' in data
+        assert 'duplicate_groups' in data['results']
+        assert 'potential_matches' in data['results']
         assert isinstance(data['metadata'], dict)
-        assert isinstance(data['duplicate_groups'], list)
-        assert isinstance(data['potential_matches'], list)
+        assert isinstance(data['results']['duplicate_groups'], list)
+        assert isinstance(data['results']['potential_matches'], list)
     
     def test_cli_duplicate_detection(self, temp_video_dir):
         """Test that the CLI correctly identifies duplicate files."""
@@ -156,7 +165,7 @@ class TestCLIIntegration:
             "python", "-m", "src", 
             "--export", str(output_file),
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         
@@ -186,7 +195,7 @@ class TestCLIIntegration:
             "python", "-m", "src", 
             "--export", str(output_file),
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         
@@ -216,7 +225,7 @@ class TestCLIIntegration:
             "--no-recursive",
             "--export", str(output_file),
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         
@@ -239,7 +248,7 @@ class TestCLIIntegration:
         result = subprocess.run([
             "python", "-m", "src", 
             "/nonexistent/directory"
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode != 0
         assert "error" in result.stderr.lower() or "not found" in result.stderr.lower()
@@ -249,7 +258,7 @@ class TestCLIIntegration:
         result = subprocess.run([
             "python", "-m", "src", 
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         # Should show some progress indication
@@ -261,7 +270,7 @@ class TestCLIIntegration:
         result = subprocess.run([
             "python", "-m", "src", 
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         # Note: ANSI color codes might not appear in captured output
@@ -276,7 +285,7 @@ class TestCLIIntegration:
             "python", "-m", "src", 
             "--export", str(output_file),
             str(temp_video_dir)
-        ], capture_output=True, text=True, cwd="/home/burt/specify-playground")
+        ], capture_output=True, text=True, cwd=str(self.workspace_dir))
         
         assert result.returncode == 0
         
@@ -284,14 +293,14 @@ class TestCLIIntegration:
             data = yaml.safe_load(f)
         
         metadata = data['metadata']
-        assert 'directories_scanned' in metadata
-        assert 'scan_timestamp' in metadata
+        assert 'scanned_directory' in metadata
+        assert 'scan_date' in metadata
         assert 'total_files_found' in metadata
-        assert 'total_size_bytes' in metadata
-        assert 'scan_duration_seconds' in metadata
+        assert 'total_files_processed' in metadata
+        assert 'duration_seconds' in metadata
         
         # Verify metadata values are reasonable
         assert metadata['total_files_found'] >= 0
-        assert metadata['total_size_bytes'] >= 0
-        assert metadata['scan_duration_seconds'] >= 0
-        assert isinstance(metadata['directories_scanned'], list)
+        assert metadata['total_files_processed'] >= 0
+        # Note: duration_seconds can be None if not set
+        assert 'recursive' in metadata

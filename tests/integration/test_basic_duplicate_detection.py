@@ -14,12 +14,12 @@ import shutil
 from pathlib import Path
 import hashlib
 
-# Import modules for integration testing (will fail until implemented)
+# Import modules for integration testing
 try:
-    from services.video_file_scanner import VideoFileScanner
-    from services.duplicate_detector import DuplicateDetector
-    from models.video_file import VideoFile
-    from models.duplicate_group import DuplicateGroup
+    from src.services.video_file_scanner import VideoFileScanner
+    from src.services.duplicate_detector import DuplicateDetector
+    from src.models.video_file import VideoFile
+    from src.models.duplicate_group import DuplicateGroup
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class VideoFileScanner:

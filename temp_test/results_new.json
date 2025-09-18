@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "scan_date": "2025-09-18T12:57:54.845095",
+    "scanned_directory": "E:\\specify-playground\\temp_test",
+    "duration_seconds": null,
+    "total_files_found": 3,
+    "total_files_processed": 3,
+    "recursive": true
+  },
+  "results": {
+    "duplicate_groups": [
+      {
+        "group_id": "8a79b8baba1d2976946146336882320563d9e1d13479bb883f162c8c6e6b81c47056bcf5fe89a5d0fcf4f5c74f3906e636a89f174f32d5ee9cfd12ef4d68f1e6",
+        "file_count": 2,
+        "total_size_bytes": 30,
+        "total_size_human": "30 B",
+        "space_wasted_bytes": 15,
+        "space_wasted_human": "15 B",
+        "files": [
+          {
+            "path": "E:\\specify-playground\\temp_test\\video1.mp4",
+            "size_bytes": 15,
+            "size_human": "15 B",
+            "hash": "8a79b8baba1d2976946146336882320563d9e1d13479bb883f162c8c6e6b81c47056bcf5fe89a5d0fcf4f5c74f3906e636a89f174f32d5ee9cfd12ef4d68f1e6"
+          },
+          {
+            "path": "E:\\specify-playground\\temp_test\\video2.mp4",
+            "size_bytes": 15,
+            "size_human": "15 B",
+            "hash": "8a79b8baba1d2976946146336882320563d9e1d13479bb883f162c8c6e6b81c47056bcf5fe89a5d0fcf4f5c74f3906e636a89f174f32d5ee9cfd12ef4d68f1e6"
+          }
+        ]
+      }
+    ],
+    "potential_matches": [
+      {
+        "group_id": "video1",
+        "similarity_score": 0.8866666666666667,
+        "files": [
+          {
+            "path": "E:\\specify-playground\\temp_test\\video1.mp4",
+            "size_bytes": 15,
+            "size_human": "15 B"
+          },
+          {
+            "path": "E:\\specify-playground\\temp_test\\video3.mkv",
+            "size_bytes": 18,
+            "size_human": "18 B"
+          },
+          {
+            "path": "E:\\specify-playground\\temp_test\\video2.mp4",
+            "size_bytes": 15,
+            "size_human": "15 B"
+          }
+        ]
+      }
+    ]
+  }
+}
