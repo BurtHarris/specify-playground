@@ -29,7 +29,7 @@ class VideoFileScanner:
         """Initialize the VideoFileScanner."""
         pass
     
-    def scan_directory(self, directory: Path, recursive: bool = True) -> Iterator[VideoFile]:
+    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None) -> Iterator[VideoFile]:
         """
         Discover video files in the specified directory.
         
@@ -60,14 +60,14 @@ class VideoFileScanner:
         # Scan for video files
         try:
             if recursive:
-                yield from self._scan_recursive(directory)
+                yield from self._scan_recursive(directory, metadata, progress_reporter)
             else:
-                yield from self._scan_non_recursive(directory)
+                yield from self._scan_non_recursive(directory, metadata, progress_reporter)
         except PermissionError:
             # Re-raise permission errors for the directory itself
             raise PermissionError(f"Permission denied scanning directory: {directory}")
     
-    def _scan_recursive(self, directory: Path) -> Iterator[VideoFile]:
+    def _scan_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[VideoFile]:
         """
         Recursively scan directory for video files.
         
@@ -113,20 +113,41 @@ class VideoFileScanner:
                     # If all else fails, just use original order
                     sorted_files = found_files
             
+            # Start progress reporting if available
+            if progress_reporter:
+                progress_reporter.start_progress(len(sorted_files), "Scanning video files")
+            
+            files_processed = 0
             for file_path in sorted_files:
                 if self.validate_file(file_path):
                     try:
+                        # Report progress if available
+                        if progress_reporter:
+                            progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
+                        
                         yield VideoFile(file_path)
-                    except (ValueError, FileNotFoundError, PermissionError):
+                        files_processed += 1
+                    except (ValueError, FileNotFoundError, PermissionError) as e:
+                        # Track error in metadata if provided
+                        if metadata:
+                            metadata.errors.append({
+                                "file": str(file_path),
+                                "error": f"Permission denied: {e}"
+                            })
+                        files_processed += 1
                         # Skip files that can't be processed
                         continue
+            
+            # Finish progress reporting if available
+            if progress_reporter:
+                progress_reporter.finish_progress()
                 
         except OSError:
             # Handle permission errors during traversal
             # Continue processing other directories
             pass
     
-    def _scan_non_recursive(self, directory: Path) -> Iterator[VideoFile]:
+    def _scan_non_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[VideoFile]:
         """
         Scan only the root level of directory for video files.
         
@@ -166,13 +187,34 @@ class VideoFileScanner:
                 # Handle Mock objects in tests that can't be converted to string  
                 sorted_files = found_files
             
+            # Start progress reporting if available
+            if progress_reporter:
+                progress_reporter.start_progress(len(sorted_files), "Scanning video files")
+            
+            files_processed = 0
             for file_path in sorted_files:
                 if self.validate_file(file_path):
                     try:
+                        # Report progress if available
+                        if progress_reporter:
+                            progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
+                        
                         yield VideoFile(file_path)
-                    except (ValueError, FileNotFoundError, PermissionError):
+                        files_processed += 1
+                    except (ValueError, FileNotFoundError, PermissionError) as e:
+                        # Track error in metadata if provided
+                        if metadata:
+                            metadata.errors.append({
+                                "file": str(file_path),
+                                "error": f"Permission denied: {e}"
+                            })
+                        files_processed += 1
                         # Skip files that can't be processed
                         continue
+            
+            # Finish progress reporting if available
+            if progress_reporter:
+                progress_reporter.finish_progress()
                         
         except PermissionError:
             # Can't read directory contents

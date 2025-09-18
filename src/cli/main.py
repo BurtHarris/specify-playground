@@ -41,14 +41,13 @@ __version__ = "1.0.0"
 @click.command()
 @click.argument('directory', type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path))
 @click.option('--recursive/--no-recursive', default=True, help='Scan subdirectories recursively (default: True)')
-@click.option('--output', type=click.Choice(['json', 'text']), default='text', help='Output format (default: text)')
-@click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to JSON file at specified path')
+@click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
 @click.option('--threshold', type=float, default=0.8, help='Fuzzy matching threshold (0.0-1.0) (default: 0.8)')
 @click.option('--verbose/--quiet', default=False, help='Verbose output with detailed progress')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
 @click.version_option(version=__version__, prog_name='video-dedup')
-def main(directory: Path, recursive: bool, output: str, export: Optional[Path], 
+def main(directory: Path, recursive: bool, export: Optional[Path], 
          threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool]):
     """
     Video Duplicate Scanner CLI
@@ -66,9 +65,10 @@ def main(directory: Path, recursive: bool, output: str, export: Optional[Path],
         
         # Set up progress reporting
         if progress is None:
-            # Auto-detect TTY unless explicitly disabled
-            show_progress = sys.stdout.isatty() and not verbose
+            # Auto-detect: progress only when TTY and not in quiet mode
+            show_progress = sys.stdout.isatty() and verbose
         else:
+            # User explicitly requested progress on/off
             show_progress = progress
         
         # Initialize services
@@ -94,22 +94,14 @@ def main(directory: Path, recursive: bool, output: str, export: Optional[Path],
             verbose=verbose
         )
         
-        # Output results
-        if output == 'text':
-            _display_text_results(scan_result, verbose, color)
-        elif output == 'json':
-            _display_json_results(scan_result)
+        # Output results (quiet mode shows basic results, verbose shows detailed)
+        _display_text_results(scan_result, verbose, color)
         
         # Export if requested
         if export:
             try:
-                if export.suffix.lower() == '.json':
-                    exporter.export_json(scan_result, export)
-                elif export.suffix.lower() in ['.yaml', '.yml']:
-                    exporter.export_yaml(scan_result, export)
-                else:
-                    # Default to JSON if no extension or unknown extension
-                    exporter.export_json(scan_result, export)
+                # Always export as YAML
+                exporter.export_yaml(scan_result, export)
                 
                 if verbose:
                     click.echo(f"\nResults exported to: {export}")
@@ -122,7 +114,15 @@ def main(directory: Path, recursive: bool, output: str, export: Optional[Path],
         
         # Exit with appropriate code
         if scan_result.metadata.errors:
-            # Had errors but completed
+            # Had errors but completed - show error summary
+            click.echo(f"Warning: {len(scan_result.metadata.errors)} errors occurred during scanning:", err=True)
+            if verbose:
+                for error in scan_result.metadata.errors[:5]:  # Show first 5 errors
+                    click.echo(f"  Error: {error.get('error', 'Unknown error')}", err=True)
+                if len(scan_result.metadata.errors) > 5:
+                    click.echo(f"  ... and {len(scan_result.metadata.errors) - 5} more errors", err=True)
+            else:
+                click.echo(f"  Use --verbose to see error details", err=True)
             sys.exit(0)
         else:
             # Clean success
@@ -176,7 +176,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
     if verbose:
         click.echo(f"Scanning directory: {directory}")
     
-    video_files = list(scanner.scan_directory(directory, recursive=recursive))
+    video_files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter))
     metadata.total_files_found = len(video_files)
     
     if not video_files:
@@ -206,7 +206,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
         if verbose:
             click.echo("Detecting duplicates...")
         
-        duplicate_groups = detector.find_duplicates(video_files)
+        duplicate_groups = detector.find_duplicates(video_files, reporter)
         
         # Update progress
         reporter.update_progress(len(video_files), "Finding potential matches")
@@ -264,15 +264,6 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
     def info(text: str) -> str:
         return click.style(text, fg='blue') if color else text
     
-    # Summary header
-    click.echo(f"\n{header('=== Scan Results ===')}")
-    click.echo(f"Scanned: {info(', '.join(str(p) for p in metadata.scan_paths))}")
-    click.echo(f"Files found: {info(str(metadata.total_files_found))}")
-    
-    if metadata.end_time and metadata.start_time:
-        duration = (metadata.end_time - metadata.start_time).total_seconds()
-        click.echo(f"Scan duration: {info(f'{duration:.2f} seconds')}")
-    
     # Format file sizes
     def format_size(bytes_size: int) -> str:
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -281,44 +272,61 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
             bytes_size /= 1024
         return f"{bytes_size:.1f} PB"
     
-    click.echo(f"Total size: {info(format_size(metadata.total_size_scanned))}")
-    
-    # Duplicate groups
-    if scan_result.duplicate_groups:
-        click.echo(f"\n{header(f'=== Duplicate Groups ({len(scan_result.duplicate_groups)}) ===')}")
+    # Summary header
+    if verbose:
+        click.echo(f"\n{header('=== Scan Results ===')}")
+        click.echo(f"Scanned: {info(', '.join(str(p) for p in metadata.scan_paths))}")
+        click.echo(f"Files found: {info(str(metadata.total_files_found))}")
         
-        total_wasted = sum(group.wasted_space for group in scan_result.duplicate_groups)
-        click.echo(f"Total wasted space: {warning(format_size(total_wasted))}")
+        if metadata.end_time and metadata.start_time:
+            duration = (metadata.end_time - metadata.start_time).total_seconds()
+            click.echo(f"Scan duration: {info(f'{duration:.2f} seconds')}")
         
-        for i, group in enumerate(scan_result.duplicate_groups, 1):
-            click.echo(f"\n{warning(f'Group {i}')}: {len(group.files)} files")
-            click.echo(f"  Size: {format_size(group.total_size)} each")
-            click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
+        click.echo(f"Total size: {info(format_size(metadata.total_size_scanned))}")
+        
+        # Duplicate groups (verbose mode)
+        if scan_result.duplicate_groups:
+            click.echo(f"\n{header(f'=== Duplicate Groups ({len(scan_result.duplicate_groups)}) ===')}")
             
-            for file in group.files:
-                click.echo(f"    {file.path}")
-    else:
-        click.echo(f"\n{success('No duplicate groups found.')}")
-    
-    # Potential matches
-    if scan_result.potential_match_groups:
-        click.echo(f"\n{header(f'=== Potential Matches ({len(scan_result.potential_match_groups)}) ===')}")
-        
-        for i, group in enumerate(scan_result.potential_match_groups, 1):
-            click.echo(f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})")
+            total_wasted = sum(group.wasted_space for group in scan_result.duplicate_groups)
+            click.echo(f"Total wasted space: {warning(format_size(total_wasted))}")
             
-            for file in group.files:
-                click.echo(f"    {file.path} ({format_size(file.size)})")
+            for i, group in enumerate(scan_result.duplicate_groups, 1):
+                click.echo(f"\n{warning(f'Group {i}')}: {len(group.files)} files")
+                click.echo(f"  Size: {format_size(group.total_size)} each")
+                click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
+                
+                for file in group.files:
+                    click.echo(f"    {file.path}")
+        else:
+            click.echo(f"\n{success('No duplicate groups found.')}")
+        
+        # Potential matches (verbose mode)
+        if scan_result.potential_match_groups:
+            click.echo(f"\n{header(f'=== Potential Matches ({len(scan_result.potential_match_groups)}) ===')}")
+            
+            for i, group in enumerate(scan_result.potential_match_groups, 1):
+                click.echo(f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})")
+                
+                for file in group.files:
+                    click.echo(f"    {file.path} ({format_size(file.size)})")
+        else:
+            click.echo(f"\n{success('No potential matches found.')}")
     else:
-        click.echo(f"\n{success('No potential matches found.')}")
-
-
-def _display_json_results(scan_result: ScanResult) -> None:
-    """Display scan results in JSON format."""
-    import json
-    exporter = ResultExporter()
-    data = exporter._prepare_export_data(scan_result)
-    click.echo(json.dumps(data, indent=2))
+        # Quiet mode - minimal output
+        click.echo(f"Scanned: {', '.join(str(p) for p in metadata.scan_paths)}")
+        click.echo(f"Files found: {metadata.total_files_found}")
+        
+        # Just show count of duplicates/matches in quiet mode
+        if scan_result.duplicate_groups:
+            click.echo(f"Duplicate groups found: {len(scan_result.duplicate_groups)}")
+        else:
+            click.echo("No duplicate groups found.")
+            
+        if scan_result.potential_match_groups:
+            click.echo(f"Potential matches found: {len(scan_result.potential_match_groups)}")
+        else:
+            click.echo("No potential matches found.")
 
 
 if __name__ == '__main__':

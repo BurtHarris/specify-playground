@@ -6,7 +6,6 @@ Tests the complete application workflow from command-line interface
 through to final output generation.
 """
 
-import json
 import tempfile
 import pytest
 import shutil
@@ -67,7 +66,7 @@ class TestCLIIntegration:
         assert result.returncode == 0
         assert "Video Duplicate Scanner" in result.stdout
         assert "--recursive" in result.stdout
-        assert "--output" in result.stdout
+        assert "--export" in result.stdout
     
     def test_cli_version_check(self):
         """Test that the CLI performs Python version checking."""
@@ -97,7 +96,7 @@ class TestCLIIntegration:
     def test_cli_recursive_scan(self, temp_video_dir):
         """Test recursive directory scanning."""
         result = subprocess.run(
-            ["python", "-m", "src", "--recursive", str(temp_video_dir)],
+            ["python", "-m", "src", "--recursive", "--verbose", str(temp_video_dir)],
             capture_output=True,
             text=True,
             cwd=str(self.workspace_dir)
@@ -132,9 +131,9 @@ class TestCLIIntegration:
         assert isinstance(data['duplicate_groups'], list)
         assert isinstance(data['potential_matches'], list)
     
-    def test_cli_json_export(self, temp_video_dir):
-        """Test JSON export functionality."""
-        output_file = temp_video_dir / "results.json"
+    def test_cli_yaml_export(self, temp_video_dir):
+        """Test YAML export functionality."""
+        output_file = temp_video_dir / "results.yaml"
         
         result = subprocess.run([
             "python", "-m", "src", 
@@ -145,17 +144,16 @@ class TestCLIIntegration:
         assert result.returncode == 0
         assert output_file.exists()
         
-        # Verify JSON format (has nested structure)
+        # Verify YAML format
         with open(output_file, 'r') as f:
-            data = json.load(f)
+            data = yaml.safe_load(f)
         
         assert 'metadata' in data
-        assert 'results' in data
-        assert 'duplicate_groups' in data['results']
-        assert 'potential_matches' in data['results']
+        assert 'duplicate_groups' in data
+        assert 'potential_matches' in data
         assert isinstance(data['metadata'], dict)
-        assert isinstance(data['results']['duplicate_groups'], list)
-        assert isinstance(data['results']['potential_matches'], list)
+        assert isinstance(data['duplicate_groups'], list)
+        assert isinstance(data['potential_matches'], list)
     
     def test_cli_duplicate_detection(self, temp_video_dir):
         """Test that the CLI correctly identifies duplicate files."""

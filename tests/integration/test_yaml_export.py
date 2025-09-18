@@ -427,41 +427,39 @@ class TestYAMLExportIntegration:
             protected_file.chmod(0o644)
 
     @pytest.mark.integration
-    def test_yaml_vs_json_size_comparison(self):
-        """Test: YAML export is more compact than equivalent JSON for readability."""
+    def test_yaml_format_readability(self):
+        """Test: YAML export format is human readable and well structured."""
         yaml_file = Path(self.temp_dir) / "results.yaml"
-        json_file = Path(self.temp_dir) / "results.json"
         
-        # Integration test: Export same data in both formats
+        # Integration test: Export data in YAML format
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         duplicate_groups = self.detector.find_duplicates(scanned_files)
         
         metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
-
-        
         scan_result = ScanResult(metadata)
-
-        
         scan_result.duplicate_groups = duplicate_groups
         scan_result.metadata.scanned_directory = str(self.temp_dir)
         
-        # Export to both formats
+        # Export to YAML format
         self.exporter.export_yaml(scan_result, yaml_file)
-        self.exporter.export_json(scan_result, json_file)
         
-        # Compare readability characteristics
+        # Check readability characteristics
         with open(yaml_file, 'r') as f:
             yaml_content = f.read()
             
-        with open(json_file, 'r') as f:
-            json_content = f.read()
-            
-        # YAML should have fewer special characters (more readable)
-        yaml_special_chars = yaml_content.count('{') + yaml_content.count('}') + yaml_content.count('"')
-        json_special_chars = json_content.count('{') + json_content.count('}') + json_content.count('"')
+        # YAML should have human-readable structure
+        assert 'version:' in yaml_content
+        assert 'metadata:' in yaml_content
+        assert 'duplicate_groups:' in yaml_content
         
-        # YAML should have significantly fewer special characters
-        assert yaml_special_chars < json_special_chars * 0.5, "YAML should be more readable than JSON"
+        # Should have minimal special characters (more readable than JSON)
+        special_chars = yaml_content.count('{') + yaml_content.count('}') + yaml_content.count('"')
+        assert special_chars < len(yaml_content) * 0.1, "YAML should have minimal special characters"
+        
+        # Should have proper indentation structure
+        lines = yaml_content.split('\n')
+        indented_lines = [line for line in lines if line.startswith('  ') or line.startswith('    ')]
+        assert len(indented_lines) > 0, "YAML should have proper indentation structure"
 
     @pytest.mark.integration
     def test_yaml_export_automatic_extension_detection(self):

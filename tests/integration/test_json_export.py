@@ -276,10 +276,14 @@ class TestJSONExportIntegration:
         
         # Integration test: Scan and export Unicode filenames
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
+        duplicate_groups = self.detector.find_duplicates(scanned_files)
+        potential_matches = self.detector.find_potential_matches(scanned_files, threshold=0.5)
         
         metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
         metadata.total_files_found = len(scanned_files)
         scan_result = ScanResult(metadata)
+        scan_result.duplicate_groups = duplicate_groups
+        scan_result.potential_matches = potential_matches
         
         self.exporter.export_json(scan_result, export_file)
         
@@ -335,8 +339,7 @@ class TestJSONExportIntegration:
 
         scan_result = ScanResult(metadata)
 
-        scan_result.metadata.scan_date = datetime.now().isoformat() + "Z"
-        scan_result.metadata.scanned_directory = str(self.temp_dir)
+        scan_result.metadata.start_time = datetime.now()
         
         self.exporter.export_json(scan_result, export_file)
         

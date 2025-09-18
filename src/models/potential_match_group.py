@@ -100,6 +100,11 @@ class PotentialMatchGroup:
         return sum(self._similarity_scores.values()) / len(self._files)
     
     @property
+    def similarity_score(self) -> float:
+        """Alias for average_similarity for backward compatibility."""
+        return self.average_similarity
+    
+    @property
     def paths(self) -> List[Path]:
         """List of file paths in this group, sorted by similarity score."""
         return [file.path for file in self.files]

@@ -20,7 +20,7 @@ from ..models.potential_match_group import PotentialMatchGroup
 class DuplicateDetector:
     """Service for detecting duplicate and potentially similar video files."""
     
-    def find_duplicates(self, files: List[VideoFile]) -> List[DuplicateGroup]:
+    def find_duplicates(self, files: List[VideoFile], progress_reporter=None) -> List[DuplicateGroup]:
         """
         Identifies duplicate files using size and hash comparison.
         
@@ -51,6 +51,9 @@ class DuplicateDetector:
         
         # Stage 2: For size groups with multiple files, compute hashes
         duplicate_groups = []
+        total_files_to_hash = sum(len(file_list) for file_list in size_groups.values() if len(file_list) >= 2)
+        hashed_files = 0
+        
         for file_list in size_groups.values():
             if len(file_list) < 2:
                 # Skip groups with only one file
@@ -60,11 +63,17 @@ class DuplicateDetector:
             hash_groups = defaultdict(list)
             for video_file in file_list:
                 try:
+                    # Report progress if reporter available
+                    if progress_reporter:
+                        progress_reporter.update_progress(hashed_files, f"Computing hash: {video_file.path.name}")
+                    
                     # Compute hash if not already done
                     file_hash = video_file.compute_hash()
                     hash_groups[file_hash].append(video_file)
+                    hashed_files += 1
                 except (OSError, PermissionError):
                     # Skip files that can't be read
+                    hashed_files += 1
                     continue
             
             # Create duplicate groups for hash groups with multiple files
@@ -157,7 +166,7 @@ class DuplicateDetector:
             file_path: Path to the file
             
         Returns:
-            Filename without extension, suitable for comparison
+            Filename without extension, suitable for comparison (lowercase)
         """
         # Get filename without extension
         filename = file_path.stem
@@ -165,4 +174,5 @@ class DuplicateDetector:
         # Normalize whitespace and handle Unicode correctly
         filename = re.sub(r'\s+', ' ', filename.strip())
         
-        return filename
+        # Convert to lowercase for case-insensitive comparison
+        return filename.lower()
