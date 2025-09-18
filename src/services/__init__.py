@@ -1,0 +1,1 @@
+# Video Duplicate Scanner CLI - Services Package
