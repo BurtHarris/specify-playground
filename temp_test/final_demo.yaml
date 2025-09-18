@@ -1,0 +1,37 @@
+duplicate_groups:
+- file_count: 2
+  files:
+  - hash: 8a79b8baba1d2976946146336882320563d9e1d13479bb883f162c8c6e6b81c47056bcf5fe89a5d0fcf4f5c74f3906e636a89f174f32d5ee9cfd12ef4d68f1e6
+    path: /home/burt/specify-playground/temp_test/video1.mp4
+    size_bytes: 15
+    size_human: 15 B
+  - hash: 8a79b8baba1d2976946146336882320563d9e1d13479bb883f162c8c6e6b81c47056bcf5fe89a5d0fcf4f5c74f3906e636a89f174f32d5ee9cfd12ef4d68f1e6
+    path: /home/burt/specify-playground/temp_test/video2.mp4
+    size_bytes: 15
+    size_human: 15 B
+  group_id: 8a79b8baba1d2976946146336882320563d9e1d13479bb883f162c8c6e6b81c47056bcf5fe89a5d0fcf4f5c74f3906e636a89f174f32d5ee9cfd12ef4d68f1e6
+  space_wasted_bytes: 15
+  space_wasted_human: 15 B
+  total_size_bytes: 30
+  total_size_human: 30 B
+metadata:
+  directories_scanned:
+  - /home/burt/specify-playground/temp_test
+  scan_duration_seconds: 0.002259
+  scan_timestamp: '2025-09-17T19:18:24.994428'
+  total_files_found: 3
+  total_size_bytes: 48
+  total_size_human: 48 B
+potential_matches:
+- files:
+  - path: /home/burt/specify-playground/temp_test/video1.mp4
+    size_bytes: 15
+    size_human: 15 B
+  - path: /home/burt/specify-playground/temp_test/video2.mp4
+    size_bytes: 15
+    size_human: 15 B
+  - path: /home/burt/specify-playground/temp_test/video3.mkv
+    size_bytes: 18
+    size_human: 18 B
+  group_id: video1
+  similarity_score: 0.8866666666666667

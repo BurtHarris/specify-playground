@@ -9,6 +9,36 @@ dist/
 build/
 lib/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+
 # TypeScript
 *.tsbuildinfo
 

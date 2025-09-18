@@ -17,6 +17,8 @@ Tooling
   - node: v22.19.0
   - pnpm: 10.16.1
   - git: 2.34.1
+  - VS Code: Code 1.104.0 (f220831ea2d946c0dcb0f3eaa480eb435a2c1260, 2025-09-10)
+  - VS Code remote: WSL: Ubuntu (host OS Windows_NT x64 10.0.26100)
 
 Repository context (working dir)
   - path: /home/burt/specify-playground
@@ -177,6 +179,26 @@ Notes / context
 ---------------
 - The presence of "azure" in `node_modules` is expected: some transitive dependencies (PSL, ci-info) include Azure-related hostnames or vendor metadata.
 - There's no evidence in the current working tree of a tracked Azure guideline file. If you recall a file being added, it may have been on a different branch or removed in a later commit.
+
+Git history search results
+--------------------------
+
+What I ran (read-only):
+
+```bash
+git -C /home/burt/specify-playground rev-list --all | xargs -n1 -I% git grep -n "azure" % 2>/dev/null || true
+git -C /home/burt/specify-playground log --all --pretty=format:"%h %an %ad %s" --grep=azure || true
+```
+
+Findings:
+
+- The only commits that reference the string "azure" are the commits that created and edited this bug report itself. Specifically:
+  - commit ae946ec68b33... (initial bug report creation)
+  - commit e974028076eb... (enriched bug report content)
+
+- No other commits or branches in the repository history contain the string "azure" in tracked files or commit messages (outside `node_modules`).
+
+Interpretation: there is no evidence that an Azure guideline file was ever added to the tracked repository history (other than content inside this bug report). The earlier confusion appears to have stemmed from the presence of "azure" text inside `node_modules` (transitive dependency data) or potentially from an untracked/generated file outside the current repository history.
 
 Contact / assignee
 ------------------
