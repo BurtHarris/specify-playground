@@ -16,10 +16,10 @@ import hashlib
 
 # Import the DuplicateDetector service (will fail until implemented)
 try:
-    from services.duplicate_detector import DuplicateDetector
-    from models.video_file import VideoFile
-    from models.duplicate_group import DuplicateGroup
-    from models.potential_match_group import PotentialMatchGroup
+    from src.services.duplicate_detector import DuplicateDetector
+    from src.models.video_file import VideoFile
+    from src.models.duplicate_group import DuplicateGroup
+    from src.models.potential_match_group import PotentialMatchGroup
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class DuplicateDetector:
