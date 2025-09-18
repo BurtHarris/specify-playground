@@ -29,7 +29,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "video-dedup=cli.main:main",
+            "video-dedup=src.cli.main:main",
         ],
     },
     classifiers=[
