@@ -1,52 +1,44 @@
-# GitHub Copilot Instructions: Video Duplicate Scanner CLI# GitHub Copilot Instructions: Video Duplicate Scanner CLI
+# GitHub Copilot Instructions: Universal File Duplicate Scanner CLI
+
+## Project Context
+
+You are working on a CLI tool that scans directories for duplicate files of any type. The tool has evolved from video-specific scanning to universal file duplicate detection with SQLite database integration. It uses a two-stage detection approach: fast file size comparison followed by hash computation for size-matched files, enhanced with cross-scan duplicate detection and hash caching.
 
 
 
-## Project Context## Project Context
+## Technology Stack
 
-You are working on a CLI tool that scans directories for duplicate video files (mp4, mkv, mov). The tool uses a two-stage detection approach: fast file size comparison followed by hash computation for size-matched files.You are working on a CLI tool that scans directories for duplicate video files (mp4, mkv, mov). The tool uses a two-stage detection approach: fast file size comparison followed by hash computation for size-matched files.
-
-
-
-## Technology Stack## Technology Stack
-
-- **Language**: Python 3.12+ (requirement validated at runtime)- **Language**: Python 3.11+
-
-- **CLI Framework**: Click for command-line interface- **CLI Framework**: Click for command-line interface
-
-- **Core Libraries**: pathlib (file operations), hashlib (blake2b hashing), fuzzywuzzy (name similarity), json (export)- **Core Libraries**: pathlib (file operations), hashlib (SHA-256 hashing), fuzzywuzzy (name similarity), PyYAML (YAML output)
-
-- **Testing**: pytest with pytest-mock for file system mocking- **Testing**: pytest with unittest.mock for file system mocking
-
-- **Target**: Cross-platform CLI executable (Linux, macOS, Windows)- **Target**: Cross-platform CLI executable (Linux, macOS, Windows)
+- **Language**: Python 3.12+ (requirement validated at runtime)
+- **CLI Framework**: Click for command-line interface
+- **Core Libraries**: pathlib (file operations), hashlib (SHA-256 hashing), fuzzywuzzy (name similarity), PyYAML (YAML config/export), sqlite3 (database), jsonschema (validation)
+- **Testing**: pytest with pytest-mock for file system mocking, database fixtures
+- **Target**: Cross-platform CLI executable (Linux, macOS, Windows)
 
 
 
-## Key Features## Key Features
+## Key Features
 
-- Python version check (3.12+ required) at CLI entry point- Recursive directory scanning (with optional disable)
-
-- Recursive directory scanning (with optional disable)- Two-stage duplicate detection (size comparison → hash computation)
-
-- Two-stage duplicate detection (size comparison → blake2b hash computation)- Fuzzy name matching for potential duplicates across extensions
-
-- Fuzzy name matching for potential duplicates across extensions- YAML export capability (default) with JSON backward compatibility
-
-- JSON export capability with structured schema- Progress reporting for long-running scans
-
-- Progress reporting for long-running scans- Graceful error handling for permission issues
-
-- Graceful error handling for permission issues- Memory-efficient processing for large video files
-
-- Memory-efficient streaming hash computation for large video files
+- Python version check (3.12+ required) at CLI entry point
+- Recursive directory scanning (with optional disable)
+- Two-stage duplicate detection (size comparison → SHA-256 hash computation)
+- **SQLite database integration** for hash caching and cross-scan analysis
+- **Universal file type support** with configurable file pattern filtering
+- **Cross-scan duplicate detection** across different scan sessions
+- Fuzzy name matching for potential duplicates across extensions
+- YAML export capability (default) with JSON backward compatibility
+- Progress reporting for long-running scans
+- Graceful error handling for permission issues and database corruption
+- Memory-efficient streaming hash computation for large files
+- **Database-less fallback mode** for compatibility and recovery
 
 ## Architecture Decisions
 
-## Architecture Decisions- **Performance**: Streaming hash computation for files >100MB to minimize memory usage
-
-- **Performance**: Blake2b hashing with streaming for files to minimize memory usage- **Error Handling**: Continue processing when individual files can't be accessed
-
-- **Error Handling**: Continue processing when individual files can't be accessed- **Data Model**: Clear separation between confirmed duplicates (identical hashes) and potential matches (similar names)
+- **Performance**: Streaming SHA-256 hash computation for files >100MB to minimize memory usage
+- **Database**: SQLite with WAL mode for concurrent access and ACID transactions
+- **Caching**: Hash caching based on file size + modification time for 50%+ performance improvement
+- **Error Handling**: Continue processing when individual files can't be accessed, graceful database fallback
+- **Data Model**: Clear separation between confirmed duplicates (identical hashes) and potential matches (similar names)
+- **Backward Compatibility**: All existing CLI commands work unchanged, progressive enhancement
 
 - **Data Model**: Clear separation between confirmed duplicates (identical hashes) and potential matches (similar names)- **CLI Design**: Follow Unix conventions with clear exit codes and structured output
 

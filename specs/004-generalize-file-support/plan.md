@@ -1,38 +1,26 @@
+
 # Implementation Plan: Generalize File Support and Add Central Database
 
 **Branch**: `004-generalize-file-support` | **Date**: September 19, 2025 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `specs/004-generalize-file-support/spec.md`
 
-## Progress Tracking
-*This checklist is updated during execution flow*
-
-**Phase Status**:
-- [ ] Phase 0: Research complete (/plan command)
-- [ ] Phase 1: Design complete (/plan command)
-- [ ] Phase 2: Task planning complete (/tasks command)
-- [ ] Phase 3: Tasks generated (/tasks command)
-- [ ] Phase 4: Implementation complete
-- [ ] Phase 5: Validation passed
-
-**Gate Status**:
-- [ ] Initial Constitution Check: PASS
-- [ ] Post-Design Constitution Check: PASS
-- [ ] All NEEDS CLARIFICATION resolved
-- [ ] Complexity deviations documented (none required)
-
 ## Execution Flow (/plan command scope)
 ```
 1. Load feature spec from Input path
-   → SUCCESS: Feature spec loaded and analyzed
+   → If not found: ERROR "No feature spec at {path}"
 2. Fill Technical Context (scan for NEEDS CLARIFICATION)
-   → Project Type: Refactoring existing CLI application
-   → Structure Decision: Option 1 (single project, existing structure)
-3. Fill the Constitution Check section based on constitution document
+   → Detect Project Type from context (web=frontend+backend, mobile=app+api)
+   → Set Structure Decision based on project type
+3. Fill the Constitution Check section based on the content of the constitution document.
 4. Evaluate Constitution Check section below
+   → If violations exist: Document in Complexity Tracking
+   → If no justification possible: ERROR "Simplify approach first"
    → Update Progress Tracking: Initial Constitution Check
 5. Execute Phase 0 → research.md
-6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file
+   → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
+6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode).
 7. Re-evaluate Constitution Check section
+   → If new violations: Refactor design, return to Phase 1
    → Update Progress Tracking: Post-Design Constitution Check
 8. Plan Phase 2 → Describe task generation approach (DO NOT create tasks.md)
 9. STOP - Ready for /tasks command
@@ -51,7 +39,7 @@ Comprehensive refactoring to generalize the video-specific duplicate scanner int
 **Storage**: SQLite database + existing file system operations  
 **Testing**: pytest, pytest-mock for unit testing, database fixtures  
 **Target Platform**: Cross-platform (Linux, macOS, Windows)
-**Project Type**: Refactoring existing CLI application  
+**Project Type**: Refactoring existing CLI application (single project structure)  
 **Performance Goals**: 50%+ reduction in re-scan time via hash caching, <100ms database queries, >80% cache hit rate  
 **Constraints**: Maintain backward compatibility, support database-less fallback mode, atomic database operations  
 **Scale/Scope**: Handle large mixed file collections (thousands of files), cross-scan duplicate detection, historical tracking
@@ -63,54 +51,73 @@ Comprehensive refactoring to generalize the video-specific duplicate scanner int
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**NEEDS CLARIFICATION** sections to resolve:
-- Database migration strategy for existing users
-- Performance impact assessment for large file sets
-- JSON Schema design for configuration validation
-- File type categorization approach (video, document, image, etc.)
-- Cross-platform database location strategy
-- Backward compatibility testing approach
+Since the constitution file is a template, applying general best practices principles:
 
-Since no specific constitution file exists beyond the template, applying general best practices:
-- [x] **Test-First Development**: TDD approach with tests written before implementation
-- [x] **Clear CLI Interface**: Text in/out protocol with YAML and human-readable formats
-- [x] **Library-First**: Core functionality as reusable modules with CLI wrapper
-- [x] **Error Handling**: Graceful handling of database, file access, permissions, and invalid inputs
-- [x] **Backward Compatibility**: Existing functionality must continue to work unchanged
-- [x] **Database Integrity**: ACID transactions, schema migrations, corruption recovery
+- [x] **Library-First**: Core functionality refactored into reusable modules (FileDatabase, FileScanner, etc.) with CLI wrapper
+- [x] **CLI Interface**: Text in/out protocol maintained, YAML and human-readable formats preserved  
+- [x] **Test-First Development**: TDD approach with tests written before implementation of new components
+- [x] **Integration Testing**: Database operations, CLI contracts, cross-scan functionality require integration tests
+- [x] **Backward Compatibility**: All existing CLI commands and functionality must continue to work unchanged
+- [x] **Error Handling**: Graceful handling of database corruption, file access permissions, invalid configs
+- [x] **Simplicity**: Start with core generalization, avoid over-engineering, database-less fallback mode
+
+**No Constitutional Violations Identified** - approach aligns with standard software engineering principles.
 
 ## Project Structure
 
 ### Documentation (this feature)
 ```
-specs/004-generalize-file-support/
+specs/[###-feature]/
 ├── plan.md              # This file (/plan command output)
 ├── research.md          # Phase 0 output (/plan command)
 ├── data-model.md        # Phase 1 output (/plan command)
 ├── quickstart.md        # Phase 1 output (/plan command)
 ├── contracts/           # Phase 1 output (/plan command)
-├── spec.md             # Feature specification (existing)
 └── tasks.md             # Phase 2 output (/tasks command - NOT created by /plan)
 ```
 
-### Source Code (repository root - existing structure)
+### Source Code (repository root)
 ```
+# Option 1: Single project (DEFAULT)
 src/
-├── models/              # Add FileInfo, DatabaseFile models
-├── services/            # Refactor VideoFileScanner → FileScanner
-├── cli/                # Extend config commands, add database commands
-└── lib/                # Add file_database.py, schema validation
+├── models/
+├── services/
+├── cli/
+└── lib/
 
 tests/
-├── contract/           # Update CLI contract tests
-├── integration/        # Add database integration tests
-└── unit/              # Update all tests for new models
+├── contract/
+├── integration/
+└── unit/
+
+# Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure]
 ```
 
-**Structure Decision**: Option 1 (existing single project structure maintained)
+**Structure Decision**: Option 1 (single project structure) - Refactoring existing CLI application, no web/mobile components detected
 
 ## Phase 0: Outline & Research
-1. **Extract unknowns from Technical Context** above:
+1. **No unknowns identified in Technical Context** - all requirements clearly specified in feature spec
+2. **Research areas identified from spec requirements**:
    - Database migration strategy for existing users → research task
    - Performance impact assessment for large file sets → benchmarking task
    - JSON Schema design for configuration validation → patterns task
@@ -118,18 +125,7 @@ tests/
    - Cross-platform database location strategy → research task
    - Backward compatibility testing approach → strategy task
 
-2. **Generate and dispatch research agents**:
-   ```
-   For each unknown in Technical Context:
-     Task: "Research {unknown} for generalized file duplicate detection"
-   For each technology choice:
-     Task: "Find best practices for {tech} in file management systems"
-   ```
-
-3. **Consolidate findings** in `research.md` using format:
-   - Decision: [what was chosen]
-   - Rationale: [why chosen]
-   - Alternatives considered: [what else evaluated]
+3. **Research completed** in `research.md` with concrete decisions for all areas
 
 **Output**: research.md with all NEEDS CLARIFICATION resolved
 
@@ -137,28 +133,39 @@ tests/
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
-   - FileInfo (replaces VideoFile), DatabaseFile, ScanSession
-   - Database schema with files, scans, scan_files tables
-   - Configuration schema with file type settings
-   - Validation rules and relationships
+   - Entity name, fields, relationships
+   - Validation rules from requirements
+   - State transitions if applicable
 
-2. **Define service contracts** → `contracts/`:
-   - FileDatabase API contract
-   - FileScanner interface contract
-   - Configuration schema contract
-   - CLI command contracts
+2. **Generate API contracts** from functional requirements:
+   - For each user action → endpoint
+   - Use standard REST/GraphQL patterns
+   - Output OpenAPI/GraphQL schema to `/contracts/`
 
-3. **Create quickstart guide** → `quickstart.md`:
-   - Migration from video-only to generalized usage
-   - Database setup and initial configuration
-   - New CLI commands and examples
+3. **Generate contract tests** from contracts:
+   - One test file per endpoint
+   - Assert request/response schemas
+   - Tests must fail (no implementation yet)
 
-**Outputs**: data-model.md, contracts/, quickstart.md
+4. **Extract test scenarios** from user stories:
+   - Each story → integration test scenario
+   - Quickstart test = story validation steps
 
-## Phase 2: Task Planning
-*Prerequisites: Phase 1 complete*
+5. **Update agent file incrementally** (O(1) operation):
+   - Run `.specify/scripts/bash/update-agent-context.sh copilot` for your AI assistant
+   - If exists: Add only NEW tech from current plan
+   - Preserve manual additions between markers
+   - Update recent changes (keep last 3)
+   - Keep under 150 lines for token efficiency
+   - Output to repository root
 
-**Task Generation Approach**:
+**Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
+
+## Phase 2: Task Planning Approach
+*This section describes what the /tasks command will do - DO NOT execute during /plan*
+
+**Task Generation Strategy**:
+
 1. **Database Foundation Tasks**:
    - Implement FileDatabase class with SQLite backend
    - Create database schema migration system
@@ -185,53 +192,45 @@ tests/
    - Create performance benchmark tests
    - Validate backward compatibility
 
-**Output**: tasks.md with specific, actionable implementation tasks
+**Ordering Strategy**:
+- TDD order: Tests before implementation
+- Dependency order: Database → Models → Services → CLI
+- Mark [P] for parallel execution (independent files)
+- Critical path: FileDatabase → FileInfo → FileScanner → CLI integration
 
-## Implementation Phases
+**Estimated Output**: 35-40 numbered, ordered tasks in tasks.md
 
-### Phase 1: Foundation (Critical Priority)
-- Database infrastructure (FileDatabase class)
-- JSON Schema validation system
-- Configuration enhancement for file types
-- Core model refactoring (VideoFile → FileInfo)
+**IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
-### Phase 2: Enhanced Scanning (High Priority)
-- Remove video-specific constraints
-- Database-integrated scanning with hash caching
-- File type filtering and categorization
-- Cross-scan duplicate detection
+## Phase 3+: Future Implementation
+*These phases are beyond the scope of the /plan command*
 
-### Phase 3: Advanced Features (Medium Priority)
-- Enhanced analytics and reporting
-- Scan history management
-- Global duplicate detection
-- Storage optimization insights
+**Phase 3**: Task execution (/tasks command creates tasks.md)  
+**Phase 4**: Implementation (execute tasks.md following constitutional principles)  
+**Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
-## Risk Mitigation
+## Complexity Tracking
+*Fill ONLY if Constitution Check has violations that must be justified*
 
-### Technical Risks
-- **Database Migration**: Implement backup/restore, test with existing data
-- **Performance Regression**: Benchmark against current implementation
-- **Cross-Platform Issues**: Test database operations on all platforms
+**No constitutional violations identified** - approach follows standard software engineering principles without requiring complexity justification.
 
-### User Experience Risks
-- **Breaking Changes**: Extensive backward compatibility testing
-- **Data Loss**: Robust backup before any migrations
-- **Complexity Increase**: Keep simple use cases simple
 
-## Success Criteria
+## Progress Tracking
+*This checklist is updated during execution flow*
 
-### Performance Metrics
-- 50%+ reduction in scan time for re-scanned directories
-- Hash cache hit rate >80% for stable file sets
-- Database query time <100ms for typical operations
+**Phase Status**:
+- [x] Phase 0: Research complete (/plan command)
+- [x] Phase 1: Design complete (/plan command)
+- [x] Phase 2: Task planning complete (/plan command - describe approach only)
+- [ ] Phase 3: Tasks generated (/tasks command)
+- [ ] Phase 4: Implementation complete
+- [ ] Phase 5: Validation passed
 
-### Functionality Metrics
-- All existing video duplicate detection functionality preserved
-- Cross-scan duplicate detection working correctly
-- File type filtering working for at least 5 common types (video, document, image, archive, text)
+**Gate Status**:
+- [x] Initial Constitution Check: PASS
+- [x] Post-Design Constitution Check: PASS
+- [x] All NEEDS CLARIFICATION resolved
+- [x] Complexity deviations documented (none required)
 
-### User Experience Metrics
-- No breaking changes to existing CLI workflows
-- New features accessible through intuitive CLI commands
-- Clear migration path for existing users
+---
+*Based on Constitution v2.1.1 - See `/memory/constitution.md`*
