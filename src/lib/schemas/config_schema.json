@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Duplicate Scanner Configuration",
+  "type": "object",
+  "properties": {
+    "database": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "cache_hashes": { "type": "boolean" },
+        "max_cache_age_days": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["enabled", "cache_hashes"]
+    },
+    "performance": {
+      "type": "object",
+      "properties": {
+        "large_file_threshold": { "type": "integer", "minimum": 1 },
+        "chunk_size": { "type": "integer", "minimum": 1 },
+        "max_concurrent_files": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["large_file_threshold", "chunk_size"]
+    },
+    "file_type_settings": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_]+$": {
+          "type": "object",
+          "properties": {
+            "extensions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "large_file_threshold": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["extensions"]
+        }
+      }
+    }
+  },
+  "required": ["database", "performance", "file_type_settings"]
+}
