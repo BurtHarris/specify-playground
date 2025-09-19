@@ -1,3 +1,4 @@
+# This file has been renamed to test_user_file_scanner.py for generalization.
 """
 Unit tests for FileScanner service.
 

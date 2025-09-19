@@ -9,20 +9,20 @@ These may be the same video in different formats/qualities.
 from typing import Dict, Iterator, List, Optional, Set, Tuple
 from pathlib import Path
 
-from .video_file import VideoFile
+from .file import UserFile
 
 
 class PotentialMatchGroup:
     """Represents a group of video files with similar names but different content."""
     
-    def __init__(self, base_name: str, similarity_threshold: float = 0.8, files: Optional[List[VideoFile]] = None):
+    def __init__(self, base_name: str, similarity_threshold: float = 0.8, files: Optional[List[UserFile]] = None):
         """
         Initialize a PotentialMatchGroup.
         
         Args:
             base_name: The common base name that files in this group share similarity with
             similarity_threshold: Minimum similarity score for files to be in this group (0.0-1.0)
-            files: Optional initial list of VideoFile objects
+            files: Optional initial list of UserFile objects
             
         Raises:
             ValueError: If base_name is empty or similarity_threshold is invalid
@@ -35,8 +35,8 @@ class PotentialMatchGroup:
         
         self._base_name = base_name.strip()
         self._similarity_threshold = similarity_threshold
-        self._files: Set[VideoFile] = set()
-        self._similarity_scores: Dict[VideoFile, float] = {}
+    self._files = set()
+    self._similarity_scores = {}
         
         if files:
             for file in files:
@@ -53,7 +53,7 @@ class PotentialMatchGroup:
         return self._similarity_threshold
     
     @property
-    def files(self) -> List[VideoFile]:
+    def files(self) -> List[UserFile]:
         """List of video files in this group, sorted by similarity score (descending)."""
         return sorted(
             self._files, 
@@ -109,21 +109,21 @@ class PotentialMatchGroup:
         """List of file paths in this group, sorted by similarity score."""
         return [file.path for file in self.files]
     
-    def add_file(self, file: VideoFile, similarity_score: Optional[float] = None) -> None:
+    def add_file(self, file: UserFile, similarity_score: Optional[float] = None) -> None:
         """
         Add a file to this group.
         
         Args:
-            file: VideoFile to add
+            file: UserFile to add
             similarity_score: Similarity score between file and base_name.
                             If None, it will be computed using fuzzy matching.
             
         Raises:
             ValueError: If similarity score is below threshold
-            TypeError: If file is not a VideoFile instance
+            TypeError: If file is not a UserFile instance
         """
-        if not isinstance(file, VideoFile):
-            raise TypeError("Can only add VideoFile instances")
+        if not isinstance(file, UserFile):
+            raise TypeError("Can only add UserFile instances")
         
         # Compute similarity score if not provided
         if similarity_score is None:
@@ -138,12 +138,12 @@ class PotentialMatchGroup:
         self._files.add(file)
         self._similarity_scores[file] = similarity_score
     
-    def remove_file(self, file: VideoFile) -> bool:
+    def remove_file(self, file: UserFile) -> bool:
         """
         Remove a file from this group.
         
         Args:
-            file: VideoFile to remove
+            file: UserFile to remove
             
         Returns:
             True if file was removed, False if file wasn't in group
@@ -175,12 +175,12 @@ class PotentialMatchGroup:
         
         return False
     
-    def contains_file(self, file: VideoFile) -> bool:
+    def contains_file(self, file: UserFile) -> bool:
         """
         Check if a file is in this group.
         
         Args:
-            file: VideoFile to check
+            file: UserFile to check
             
         Returns:
             True if file is in this group
@@ -200,7 +200,7 @@ class PotentialMatchGroup:
         path = Path(path).resolve()
         return any(file.path == path for file in self._files)
     
-    def get_file_by_path(self, path: Path) -> Optional[VideoFile]:
+    def get_file_by_path(self, path: Path) -> Optional[UserFile]:
         """
         Get a file from this group by its path.
         
@@ -208,7 +208,7 @@ class PotentialMatchGroup:
             path: Path to find
             
         Returns:
-            VideoFile if found, None otherwise
+            UserFile if found, None otherwise
         """
         path = Path(path).resolve()
         
@@ -218,19 +218,19 @@ class PotentialMatchGroup:
         
         return None
     
-    def get_similarity_score(self, file: VideoFile) -> Optional[float]:
+    def get_similarity_score(self, file: UserFile) -> Optional[float]:
         """
         Get the similarity score for a file in this group.
         
         Args:
-            file: VideoFile to get score for
+            file: UserFile to get score for
             
         Returns:
             Similarity score if file is in group, None otherwise
         """
         return self._similarity_scores.get(file)
     
-    def get_files_by_extension(self, extension: str) -> List[VideoFile]:
+    def get_files_by_extension(self, extension: str) -> List[UserFile]:
         """
         Get all files with a specific extension.
         
@@ -238,29 +238,29 @@ class PotentialMatchGroup:
             extension: File extension to filter by (e.g., '.mp4')
             
         Returns:
-            List of VideoFile objects with the specified extension
+            List of UserFile objects with the specified extension
         """
         extension = extension.lower()
         return [file for file in self._files if file.extension == extension]
     
-    def get_best_match(self) -> Optional[VideoFile]:
+    def get_best_match(self) -> Optional[UserFile]:
         """
         Get the file with the highest similarity score.
         
         Returns:
-            VideoFile with highest similarity score, or None if group is empty
+            UserFile with highest similarity score, or None if group is empty
         """
         if not self._files:
             return None
         
         return max(self._files, key=lambda f: self._similarity_scores[f])
     
-    def get_files_with_scores(self) -> List[Tuple[VideoFile, float]]:
+    def get_files_with_scores(self) -> List[Tuple[UserFile, float]]:
         """
         Get all files with their similarity scores.
         
         Returns:
-            List of (VideoFile, similarity_score) tuples, sorted by score (descending)
+            List of (UserFile, similarity_score) tuples, sorted by score (descending)
         """
         return sorted(
             [(file, self._similarity_scores[file]) for file in self._files],
@@ -295,7 +295,7 @@ class PotentialMatchGroup:
                 # File doesn't meet similarity threshold for this group
                 continue
     
-    def update_threshold(self, new_threshold: float) -> List[VideoFile]:
+    def update_threshold(self, new_threshold: float) -> List[UserFile]:
         """
         Update the similarity threshold and remove files that no longer qualify.
         
@@ -323,12 +323,12 @@ class PotentialMatchGroup:
         
         return removed_files
     
-    def _compute_similarity(self, file: VideoFile) -> float:
+    def _compute_similarity(self, file: UserFile) -> float:
         """
         Compute similarity score between file and base name using fuzzy matching.
         
         Args:
-            file: VideoFile to compute similarity for
+            file: UserFile to compute similarity for
             
         Returns:
             Similarity score between 0.0 and 1.0
@@ -354,11 +354,11 @@ class PotentialMatchGroup:
         """Number of files in this group."""
         return len(self._files)
     
-    def __iter__(self) -> Iterator[VideoFile]:
+    def __iter__(self) -> Iterator[UserFile]:
         """Iterate over files in this group, sorted by similarity score."""
         return iter(self.files)
     
-    def __contains__(self, file: VideoFile) -> bool:
+    def __contains__(self, file: UserFile) -> bool:
         """Check if file is in this group."""
         return file in self._files
     

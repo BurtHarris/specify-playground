@@ -17,7 +17,7 @@ import os
 # Import the VideoFileScanner service (will fail until implemented)
 try:
     from src.services.video_file_scanner import VideoFileScanner
-    from src.models.video_file import VideoFile
+    from src.models.file import UserFile
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class VideoFileScanner:

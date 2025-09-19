@@ -1,10 +1,10 @@
 """
-Contract test for VideoFile cloud status integration following TDD methodology.
+Contract test for UserFile cloud status integration following TDD methodology.
 
-This test verifies the enhanced VideoFile model contract with cloud status support.
-All tests must fail until VideoFile cloud integration is implemented.
+This test verifies the enhanced UserFile model contract with cloud status support.
+All tests must fail until UserFile cloud integration is implemented.
 
-OneDrive Integration MVP - VideoFile Enhancement
+OneDrive Integration MVP - UserFile Enhancement
 """
 
 from typing import TYPE_CHECKING
@@ -12,7 +12,7 @@ import pytest
 from pathlib import Path
 
 if TYPE_CHECKING:
-    from src.models.video_file import VideoFile
+    from src.models.file import UserFile
     from src.models.cloud_file_status import CloudFileStatus
     from src.services.cloud_file_service import CloudFileService
 else:
@@ -52,27 +52,27 @@ class TestVideoFileCloudIntegrationContract:
         assert hasattr(video, 'is_cloud_only'), \
             "VideoFile must have is_cloud_only property"
     
-    def test_video_file_has_is_local_property(self):
+                def test_user_file_has_cloud_status_property(self):
         """VideoFile must have is_local property."""
-        video = VideoFile(Path("temp_test/video1.mp4"))
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
         assert hasattr(video, 'is_local'), \
             "VideoFile must have is_local property"
     
     def test_video_file_cloud_status_returns_cloud_file_status(self):
         """cloud_status property must return CloudFileStatus enum value."""
-        video = VideoFile(Path("temp_test/video1.mp4"))
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
         status = video.cloud_status
-        
-        # Should be either LOCAL or CLOUD_ONLY
-        assert status in [CloudFileStatus.LOCAL, CloudFileStatus.CLOUD_ONLY], \
-            "cloud_status must return valid CloudFileStatus enum value"
-    
-    def test_video_file_is_cloud_only_returns_boolean(self):
-        """is_cloud_only property must return boolean value."""
-        video = VideoFile(Path("temp_test/video1.mp4"))
+        """
+        Contract test for UserFile cloud status integration following TDD methodology.
+
+        This test verifies the enhanced UserFile model contract with cloud status support.
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
+
+        OneDrive Integration MVP - UserFile Enhancement
+        """
         result = video.is_cloud_only
         
-        assert isinstance(result, bool), \
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
             "is_cloud_only must return boolean value"
     
     def test_video_file_is_local_returns_boolean(self):
@@ -81,7 +81,7 @@ class TestVideoFileCloudIntegrationContract:
         result = video.is_local
         
         assert isinstance(result, bool), \
-            "is_local must return boolean value"
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
     
     def test_video_file_cloud_status_consistency(self):
         """is_cloud_only and is_local must be mutually exclusive."""
@@ -89,7 +89,7 @@ class TestVideoFileCloudIntegrationContract:
         
         is_cloud_only = video.is_cloud_only
         is_local = video.is_local
-        
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
         # Exactly one must be True (mutually exclusive)
         assert is_cloud_only != is_local, \
             "is_cloud_only and is_local must be mutually exclusive (exactly one True)"
@@ -100,7 +100,7 @@ class TestVideoFileCloudIntegrationContract:
         
         status = video.cloud_status
         is_cloud_only = video.is_cloud_only
-        is_local = video.is_local
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
         
         # Verify consistency
         if status == CloudFileStatus.LOCAL:
@@ -119,7 +119,7 @@ class TestVideoFileCloudIntegrationContract:
         
         # cloud_status should be computed when accessed, not at initialization
         # This tests that the property exists and is callable
-        try:
+                    user_file = UserFile(Path("nonexistent_test_file.mp4"))
             _ = video.cloud_status
         except Exception as e:
             # If it fails, it should be due to file system access, not missing property
@@ -132,7 +132,7 @@ class TestVideoFileCloudIntegrationContract:
         
         # First access
         try:
-            status1 = video.cloud_status
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
             # Second access should return same result (cached)
             status2 = video.cloud_status
             
@@ -149,7 +149,7 @@ class TestVideoFileCloudIntegrationContract:
         
         # VideoFile should have internal CloudFileService integration
         # This tests that cloud status detection is properly integrated
-        try:
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
             _ = video.cloud_status
             # If this succeeds, the integration exists
             assert True, "CloudFileService integration working"
@@ -165,7 +165,7 @@ class TestVideoFileCloudIntegrationContract:
         
         if platform.system() != "Windows":
             # On non-Windows platforms, should handle gracefully
-            try:
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
                 status = video.cloud_status
                 # Should return LOCAL on non-Windows platforms
                 assert status == CloudFileStatus.LOCAL, \
@@ -183,7 +183,7 @@ class TestVideoFileCloudIntegrationContract:
         
         try:
             status = video.cloud_status
-            # Should return a valid status even for non-existent files
+                    user_file = UserFile(Path("nonexistent_file_12345.mp4"))
             assert status in [CloudFileStatus.LOCAL, CloudFileStatus.CLOUD_ONLY], \
                 "cloud_status must handle non-existent files gracefully"
         except Exception as e:
@@ -197,7 +197,7 @@ class TestVideoFileCloudIntegrationContract:
         
         # Original VideoFile properties must still exist
         required_attrs = ['path', 'size', 'hash']
-        for attr in required_attrs:
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
             assert hasattr(video, attr), \
                 f"VideoFile must maintain backward compatibility - missing {attr}"
     
@@ -207,5 +207,5 @@ class TestVideoFileCloudIntegrationContract:
         repr_str = repr(video)
         
         # Should include cloud status information in representation
-        assert 'cloud' in repr_str.lower() or 'local' in repr_str.lower(), \
+                    user_file = UserFile(Path("temp_test/video1.mp4"))
             "VideoFile repr should include cloud status information"

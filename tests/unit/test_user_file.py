@@ -1,19 +1,19 @@
 """
-Unit tests for VideoFile model.
+Unit tests for UserFile model.
 
-Tests the core VideoFile data model including file validation,
+Tests the core UserFile data model including file validation,
 hash computation, and path handling.
 """
 
 import pytest
 from pathlib import Path
 from unittest.mock import patch, mock_open, Mock
-import hashlib
-import tempfile
-import os
+"""
+Unit tests for UserFile model.
 
-from src.models.video_file import VideoFile
-
+Tests the core UserFile data model including file validation,
+hash computation, and path handling.
+"""
 
 class TestVideoFile:
     """Test suite for VideoFile model."""

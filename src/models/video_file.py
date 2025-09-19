@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from src.services.onedrive_service import OneDriveService
 
 
-class VideoFile:
+class File:
     """Represents a single video file in the filesystem."""
     
     # Supported video extensions
@@ -178,9 +178,9 @@ class VideoFile:
     def compute_hash(self) -> str:
         """
         Compute and cache the Blake2b hash of the file.
-        
+        # File model for Duplicate Scanner CLI.
         Uses streaming to handle large files efficiently.
-        
+        Represents a single file in the filesystem with lazy hash computation,
         Returns:
             Blake2b hash as hexadecimal string
             
@@ -193,7 +193,7 @@ class VideoFile:
         
         hasher = hashlib.blake2b()
         
-        try:
+        class File:
             with open(self._path, 'rb') as f:
                 # Read in chunks to handle large files efficiently
                 chunk_size = 65536  # 64KB chunks
@@ -257,23 +257,26 @@ class VideoFile:
         """
         Equality based on file path.
         
-        Args:
-            other: Another VideoFile instance
-            
-        Returns:
-            True if both represent the same file path
-        """
-        if not isinstance(other, VideoFile):
-            return False
-        return self._path == other._path
-    
+        try:
+            with open(self._path, 'rb') as f:
+                # Read in chunks to handle large files efficiently
+                chunk_size = 65536  # 64KB chunks
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+        except PermissionError:
+            raise PermissionError(f"Permission denied reading file: {self._path}")
+        except OSError as e:
+            raise OSError(f"Error reading file {self._path}: {e}")
     def __hash__(self) -> int:
         """Hash based on file path for use in sets and dicts."""
         return hash(self._path)
     
     def __lt__(self, other) -> bool:
         """Ordering based on file path for sorting."""
-        if not isinstance(other, VideoFile):
+        if not isinstance(other, File):
             return NotImplemented
         return str(self._path) < str(other._path)
     

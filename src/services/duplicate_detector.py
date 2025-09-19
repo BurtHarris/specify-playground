@@ -57,10 +57,10 @@ class DuplicateDetector:
             
             # Show detailed analysis of each file
             print("File analysis:")
-            for video_file in files:
-                cloud_status = "CLOUD-ONLY" if video_file.is_cloud_only else "LOCAL"
-                size_mb = video_file.size / (1024 * 1024)
-                print(f"  {cloud_status:10} | {size_mb:8.1f} MB | {video_file.path.name}")
+            for user_file in files:
+                cloud_status = "CLOUD-ONLY" if user_file.is_cloud_only else "LOCAL"
+                size_mb = user_file.size / (1024 * 1024)
+                print(f"  {cloud_status:10} | {size_mb:8.1f} MB | {user_file.path.name}")
             print()
         
         # Stage 1: Group files by size for performance optimization
@@ -112,7 +112,7 @@ class DuplicateDetector:
                     hashed_files += 1
                 except (OSError, PermissionError) as e:
                     if verbose:
-                        print(f"  SKIPPED (error): {video_file.path.name} - {e}")
+                        print(f"  SKIPPED (error): {user_file.path.name} - {e}")
                     # Skip files that can't be read
                     hashed_files += 1
                     skipped_error_files += 1

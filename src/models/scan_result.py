@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Set, Union
 from .duplicate_group import DuplicateGroup
 from .potential_match_group import PotentialMatchGroup
 from .scan_metadata import ScanMetadata
-from .video_file import VideoFile
+from .file import UserFile
 
 
 class ScanResult:
@@ -29,7 +29,7 @@ class ScanResult:
         self.metadata = metadata
         self.duplicate_groups: List[DuplicateGroup] = []
         self.potential_match_groups: List[PotentialMatchGroup] = []
-        self._all_files: Optional[Set[VideoFile]] = None  # Cached set of all files
+    self._all_files = None  # Cached set of all files
     
     @property
     def has_duplicates(self) -> bool:
@@ -72,7 +72,7 @@ class ScanResult:
         return sum(group.total_size for group in self.duplicate_groups)
     
     @property
-    def all_files(self) -> Set[VideoFile]:
+    def all_files(self) -> Set[UserFile]:
         """Set of all unique files found in the scan."""
         if self._all_files is None:
             self._all_files = set()
@@ -250,7 +250,7 @@ class ScanResult:
         
         return filtered_groups
     
-    def get_files_by_path_prefix(self, path_prefix: Union[str, Path]) -> Set[VideoFile]:
+    def get_files_by_path_prefix(self, path_prefix: Union[str, Path]) -> Set[UserFile]:
         """
         Get all files whose paths start with the given prefix.
         
@@ -258,7 +258,7 @@ class ScanResult:
             path_prefix: Path prefix to match against
             
         Returns:
-            Set of VideoFile objects with matching path prefix
+            Set of UserFile objects with matching path prefix
         """
         path_prefix = str(Path(path_prefix).resolve())
         matching_files = set()
@@ -269,7 +269,7 @@ class ScanResult:
         
         return matching_files
     
-    def find_file_by_path(self, path: Union[str, Path]) -> Optional[VideoFile]:
+    def find_file_by_path(self, path: Union[str, Path]) -> Optional[UserFile]:
         """
         Find a specific file by its path.
         
@@ -277,7 +277,7 @@ class ScanResult:
             path: Path to search for
             
         Returns:
-            VideoFile if found, None otherwise
+            UserFile if found, None otherwise
         """
         target_path = Path(path).resolve()
         

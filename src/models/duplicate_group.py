@@ -8,19 +8,19 @@ Represents a group of video files that have identical content (same hash).
 from typing import Iterator, List, Optional, Set
 from pathlib import Path
 
-from .video_file import VideoFile
+from .file import UserFile
 
 
 class DuplicateGroup:
     """Represents a group of video files with identical content."""
     
-    def __init__(self, hash_value: str, files: Optional[List[VideoFile]] = None):
+    def __init__(self, hash_value: str, files: Optional[List[UserFile]] = None):
         """
         Initialize a DuplicateGroup.
         
         Args:
             hash_value: The common hash shared by all files in this group
-            files: Optional initial list of VideoFile objects
+            files: Optional initial list of UserFile objects
             
         Raises:
             ValueError: If hash_value is empty or files have different hashes
@@ -29,7 +29,7 @@ class DuplicateGroup:
             raise ValueError("Hash value cannot be empty")
         
         self._hash_value = hash_value.strip()
-        self._files: Set[VideoFile] = set()
+    self._files = set()
         
         if files:
             for file in files:
@@ -41,7 +41,7 @@ class DuplicateGroup:
         return self._hash_value
     
     @property
-    def files(self) -> List[VideoFile]:
+    def files(self) -> List[UserFile]:
         """List of video files in this group, sorted by path."""
         return sorted(self._files)
     
