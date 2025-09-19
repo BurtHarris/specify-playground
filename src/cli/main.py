@@ -32,6 +32,8 @@ from ..services.progress_reporter import ProgressReporter
 from ..services.result_exporter import ResultExporter, DiskSpaceError
 from ..models.scan_result import ScanResult
 from ..models.scan_metadata import ScanMetadata
+from ..lib.config_manager import ConfigManager
+from .config_commands import config
 
 
 # Version constant
@@ -47,25 +49,72 @@ def format_size(bytes_size: int) -> str:
     return f"{bytes_size:.1f} PB"
 
 
-@click.command()
-@click.argument('directory', type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path))
-@click.option('--recursive/--no-recursive', default=True, help='Scan subdirectories recursively (default: True)')
+@click.group(invoke_without_command=True)
+@click.pass_context
+@click.option('--recursive/--no-recursive', default=None, help='Scan subdirectories recursively (default: from config)')
 @click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
-@click.option('--threshold', type=float, default=0.8, help='Fuzzy matching threshold (0.0-1.0) (default: 0.8)')
-@click.option('--verbose/--quiet', default=False, help='Verbose output with detailed progress')
-@click.option('--progress/--no-progress', default=None, help='Show progress bar (default: auto-detect TTY)')
+@click.option('--threshold', type=float, default=None, help='Fuzzy matching threshold (0.0-1.0) (default: from config)')
+@click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
+@click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
 @click.version_option(version=__version__, prog_name='video-dedup')
-def main(directory: Path, recursive: bool, export: Optional[Path], 
-         threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool]):
+def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path], 
+         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
     """
     Video Duplicate Scanner CLI
     
-    Scans DIRECTORY for duplicate video files using size comparison
+    Scans directories for duplicate video files using size comparison
     followed by hash computation for performance optimization.
     
     Supports .mp4, .mkv, and .mov video formats.
+    
+    Use 'video-dedup scan DIRECTORY' to scan a directory.
+    Use 'video-dedup config' commands to manage configuration.
     """
+    # If no command is given, show help
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help(), color=ctx.color)
+        ctx.exit()
+
+
+@main.command()
+@click.argument('directory', type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path))
+@click.option('--recursive/--no-recursive', default=None, help='Scan subdirectories recursively (default: from config)')
+@click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
+@click.option('--threshold', type=float, default=None, help='Fuzzy matching threshold (0.0-1.0) (default: from config)')
+@click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
+@click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
+@click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
+def scan(directory: Path, recursive: Optional[bool], export: Optional[Path], 
+         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
+    """Scan DIRECTORY for duplicate video files."""
+    # Load configuration for defaults
+    config_manager = ConfigManager()
+    try:
+        config_settings = config_manager.load_config()
+    except Exception as e:
+        click.echo(f"Warning: Could not load configuration: {e}", err=True)
+        click.echo("Using built-in defaults.", err=True)
+        config_settings = ConfigManager.DEFAULT_CONFIG.copy()
+    
+    # Use config defaults where CLI options weren't specified
+    if recursive is None:
+        recursive = config_settings.get('recursive_scan', True)
+    if threshold is None:
+        threshold = config_settings.get('fuzzy_threshold', 0.8)
+    if verbose is None:
+        verbose = config_settings.get('verbose_mode', False)
+    if progress is None and config_settings.get('show_progress') is not None:
+        progress = config_settings.get('show_progress')
+    
+    # Run the scan
+    _run_scan(directory, recursive, export, threshold, verbose, progress, color, config_manager)
+
+
+def _run_scan(directory: Path, recursive: bool, export: Optional[Path], 
+              threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool],
+              config_manager: ConfigManager) -> None:
+    """Execute the video duplicate scan."""
     try:
         # Validate threshold range
         if not 0.0 <= threshold <= 1.0:
@@ -120,6 +169,15 @@ def main(directory: Path, recursive: bool, export: Optional[Path],
             except PermissionError as e:
                 click.echo(f"Error: Cannot write to {export}: Permission denied", err=True)
                 sys.exit(2)
+        
+        # Update scan history before completing
+        try:
+            duplicates_found = len(scan_result.duplicate_groups)
+            file_count = scan_result.metadata.total_files_found
+            config_manager.add_scan_history(directory, file_count, duplicates_found)
+        except Exception as e:
+            if verbose:
+                click.echo(f"Warning: Could not update scan history: {e}", err=True)
         
         # Exit with appropriate code
         if scan_result.metadata.errors:
@@ -336,6 +394,19 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool, s
             click.echo(f"Potential matches found: {len(scan_result.potential_match_groups)}")
         else:
             click.echo("No potential matches found.")
+
+
+def format_size(bytes_size: int) -> str:
+    """Format file size in human-readable units."""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes_size < 1024:
+            return f"{bytes_size:.1f} {unit}"
+        bytes_size /= 1024
+    return f"{bytes_size:.1f} PB"
+
+
+# Add config command group
+main.add_command(config)
 
 
 if __name__ == '__main__':
