@@ -12,7 +12,7 @@ from pathlib import Path
 from fuzzywuzzy import fuzz
 import re
 
-from ..models.video_file import VideoFile
+from src.models.file import UserFile
 from ..models.duplicate_group import DuplicateGroup
 from ..models.potential_match_group import PotentialMatchGroup
 
@@ -20,7 +20,7 @@ from ..models.potential_match_group import PotentialMatchGroup
 class DuplicateDetector:
     """Service for detecting duplicate and potentially similar video files."""
     
-    def find_duplicates(self, files: List[VideoFile], progress_reporter=None, verbose: bool = False) -> List[DuplicateGroup]:
+    def find_duplicates(self, files: List[UserFile], progress_reporter=None, verbose: bool = False) -> List[DuplicateGroup]:
         """
         Identifies duplicate files using size and hash comparison.
         
@@ -65,8 +65,8 @@ class DuplicateDetector:
         
         # Stage 1: Group files by size for performance optimization
         size_groups = defaultdict(list)
-        for video_file in files:
-            size_groups[video_file.size].append(video_file)
+        for file in files:
+            size_groups[file.size].append(file)
         
         if verbose:
             groups_with_multiple = sum(1 for file_list in size_groups.values() if len(file_list) >= 2)
@@ -86,26 +86,29 @@ class DuplicateDetector:
                 
             # Compute hashes for all files in this size group
             hash_groups = defaultdict(list)
-            for video_file in file_list:
+            for file in file_list:
                 try:
                     # Report progress if reporter available
                     if progress_reporter:
-                        progress_reporter.update_progress(hashed_files, f"Computing hash: {video_file.path.name}")
-                    
+                        progress_reporter.update_progress(hashed_files, f"Computing hash: {file.path.name}")
+
                     # Skip hash computation for cloud-only files to avoid triggering downloads
-                    if video_file.is_cloud_only:
+                    if hasattr(file, 'is_cloud_only') and file.is_cloud_only:
                         if verbose:
-                            print(f"  SKIPPED (cloud-only): {video_file.path.name}")
+                            print(f"  SKIPPED (cloud-only): {file.path.name}")
                         hashed_files += 1
                         skipped_cloud_files += 1
                         continue
-                    
+
                     if verbose:
-                        print(f"  HASHING: {video_file.path.name}")
-                    
+                        print(f"  HASHING: {file.path.name}")
+
                     # Compute hash if not already done
-                    file_hash = video_file.compute_hash()
-                    hash_groups[file_hash].append(video_file)
+                    if hasattr(file, 'compute_hash'):
+                        file_hash = file.compute_hash()
+                    else:
+                        file_hash = str(file.path)  # fallback for now
+                    hash_groups[file_hash].append(file)
                     hashed_files += 1
                 except (OSError, PermissionError) as e:
                     if verbose:
@@ -133,7 +136,7 @@ class DuplicateDetector:
         
         return duplicate_groups
     
-    def find_potential_matches(self, files: List[VideoFile], threshold: float = 0.8, verbose: bool = False) -> List[PotentialMatchGroup]:
+    def find_potential_matches(self, files: List[UserFile], threshold: float = 0.8, verbose: bool = False) -> List[PotentialMatchGroup]:
         """
         Identifies files with similar names that might be duplicates.
         
@@ -169,7 +172,7 @@ class DuplicateDetector:
         for i, file1 in enumerate(files):
             if file1 in processed_files:
                 continue
-                
+            
             # Extract filename without extension for comparison
             name1 = self._extract_filename_for_comparison(file1.path)
             

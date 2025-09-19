@@ -17,7 +17,7 @@ from datetime import datetime
 
 # Import modules for integration testing
 try:
-    from src.services.video_file_scanner import VideoFileScanner
+    from src.services.file_scanner import FileScanner
     from src.services.duplicate_detector import DuplicateDetector
     from src.services.result_exporter import ResultExporter
     from src.models.scan_result import ScanResult
@@ -26,9 +26,7 @@ try:
     from click.testing import CliRunner
 except ImportError:
     # Expected to fail initially - create stubs for testing
-    class VideoFileScanner:
-        def scan_directory(self, directory, recursive=True):
-            raise NotImplementedError("VideoFileScanner not yet implemented")
+    from src.services.file_scanner import FileScanner
     
     class DuplicateDetector:
         def find_duplicates(self, files):
@@ -74,11 +72,10 @@ class TestYAMLExportIntegration:
     def setup_method(self):
         """Set up test environment for each test."""
         self.temp_dir = tempfile.mkdtemp()
-        self.scanner = VideoFileScanner()
+        self.scanner = FileScanner()
         self.detector = DuplicateDetector()
         self.exporter = ResultExporter()
         self.cli_runner = CliRunner()
-        
         # Create test video files
         self.create_test_videos()
         

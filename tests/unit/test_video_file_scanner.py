@@ -1,7 +1,7 @@
 """
-Unit tests for VideoFileScanner service.
+Unit tests for FileScanner service.
 
-Tests the VideoFileScanner service including directory scanning,
+Tests the FileScanner service including directory scanning,
 fi    @patch('os.access')
     @patch('pathlib.Path.exis    @patch('os.access')
     @patch('pathlib.Path.exists')
@@ -48,21 +48,21 @@ from pathlib import Path
 from unittest.mock import patch, Mock, MagicMock
 import os
 
-from src.services.video_file_scanner import VideoFileScanner, DirectoryNotFoundError
-from src.models.video_file import VideoFile
+from src.services.file_scanner import FileScanner, DirectoryNotFoundError
+from src.models.file import UserFile
 
 
-class TestVideoFileScanner:
-    """Test suite for VideoFileScanner service."""
+class TestFileScanner:
+    """Test suite for FileScanner service."""
     
     @pytest.fixture
     def scanner(self):
-        """Create a VideoFileScanner instance for testing."""
-        return VideoFileScanner()
-    
+        """Create a FileScanner instance for testing."""
+        return FileScanner()
+
     def test_scanner_creation(self, scanner):
         """Test basic scanner creation."""
-        assert isinstance(scanner, VideoFileScanner)
+        assert isinstance(scanner, FileScanner)
     
     @patch('pathlib.Path.exists')
     @patch('pathlib.Path.is_dir')
@@ -145,7 +145,7 @@ class TestVideoFileScanner:
         result = list(scanner.scan_directory(directory, recursive=False))
         
         assert len(result) == 2
-        assert all(isinstance(f, VideoFile) for f in result)
+        assert all(isinstance(f, UserFile) for f in result)
         assert result[0].size == 1024
         assert result[1].size == 2048
     

@@ -16,7 +16,7 @@ import hashlib
 
 # Import modules for integration testing
 try:
-    from src.services.video_file_scanner import VideoFileScanner
+    from src.services.file_scanner import FileScanner
     from src.services.duplicate_detector import DuplicateDetector
     from src.models.video_file import VideoFile
     from src.models.duplicate_group import DuplicateGroup
@@ -47,7 +47,7 @@ class TestBasicDuplicateDetection:
     def setup_method(self):
         """Set up test environment for each test."""
         self.temp_dir = tempfile.mkdtemp()
-        self.scanner = VideoFileScanner()
+        self.scanner = FileScanner()
         self.detector = DuplicateDetector()
         
         # Create test video content

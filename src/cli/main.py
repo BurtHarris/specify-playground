@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Main CLI entry point for Video Duplicate Scanner.
+Main CLI entry point for Universal File Duplicate Scanner.
 
 This module provides the command-line interface using Click framework
-with Python version validation and comprehensive error handling.
+with Python version validation and comprehensive error handling for universal file duplicate detection.
 """
 
 import sys
@@ -26,7 +26,7 @@ def check_python_version():
 check_python_version()
 
 # Now safe to import our modules
-from ..services.video_file_scanner import VideoFileScanner, DirectoryNotFoundError
+from ..services.file_scanner import FileScanner, DirectoryNotFoundError
 from ..services.duplicate_detector import DuplicateDetector
 from ..services.progress_reporter import ProgressReporter
 from ..services.result_exporter import ResultExporter, DiskSpaceError
@@ -61,15 +61,15 @@ def format_size(bytes_size: int) -> str:
 def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path], 
          threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
     """
-    Video Duplicate Scanner CLI
+    Universal File Duplicate Scanner CLI
     
-    Scans directories for duplicate video files using size comparison
+    Scans directories for duplicate files of any type using size comparison
     followed by hash computation for performance optimization.
     
-    Supports .mp4, .mkv, and .mov video formats.
+    Supports all file types with configurable filtering.
     
-    Use 'video-dedup scan DIRECTORY' to scan a directory.
-    Use 'video-dedup config' commands to manage configuration.
+    Use 'file-dedup scan DIRECTORY' to scan a directory.
+    Use 'file-dedup config' commands to manage configuration.
     """
     # If no command is given, show help
     if ctx.invoked_subcommand is None:
@@ -86,8 +86,8 @@ def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path],
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
 def scan(directory: Path, recursive: Optional[bool], export: Optional[Path], 
-         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
-    """Scan DIRECTORY for duplicate video files."""
+        threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
+    """Scan DIRECTORY for duplicate files of any type."""
     # Load configuration for defaults
     config_manager = ConfigManager()
     try:
@@ -114,13 +114,13 @@ def scan(directory: Path, recursive: Optional[bool], export: Optional[Path],
 def _run_scan(directory: Path, recursive: bool, export: Optional[Path], 
               threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool],
               config_manager: ConfigManager) -> None:
-    """Execute the video duplicate scan."""
+    """Execute the universal file duplicate scan."""
     try:
         # Validate threshold range
         if not 0.0 <= threshold <= 1.0:
             click.echo("Error: Threshold must be between 0.0 and 1.0", err=True)
             sys.exit(1)
-        
+
         # Set up progress reporting
         if progress is None:
             # Auto-detect: progress only when TTY and not in quiet mode
@@ -128,39 +128,39 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
         else:
             # User explicitly requested progress on/off
             show_progress = progress
-        
+
         # Initialize services
         progress_reporter = ProgressReporter(enabled=show_progress)
-        scanner = VideoFileScanner()
+        scanner = FileScanner()
         detector = DuplicateDetector()
         exporter = ResultExporter()
-        
+
         # Start scan
         if verbose:
-            click.echo(f"Video Duplicate Scanner v{__version__}")
+            click.echo(f"Universal File Duplicate Scanner v{__version__}")
             click.echo(f"Scanning: {directory} ({'recursive' if recursive else 'non-recursive'})")
             click.echo()
-        
+
         # Perform directory scan (cloud detection happens automatically)
         scan_result = _perform_scan(
             scanner=scanner,
-            detector=detector, 
+            detector=detector,
             reporter=progress_reporter,
             directory=directory,
             recursive=recursive,
             threshold=threshold,
             verbose=verbose
         )
-        
+
         # Output results (quiet mode shows basic results, verbose shows detailed)
         _display_text_results(scan_result, verbose, color, directory)
-        
+
         # Export if requested
         if export:
             try:
                 # Always export as YAML
                 exporter.export_yaml(scan_result, export)
-                
+
                 if verbose:
                     click.echo(f"\nResults exported to: {export}")
             except DiskSpaceError as e:
@@ -169,7 +169,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
             except PermissionError as e:
                 click.echo(f"Error: Cannot write to {export}: Permission denied", err=True)
                 sys.exit(2)
-        
+
         # Update scan history before completing
         try:
             duplicates_found = len(scan_result.duplicate_groups)
@@ -178,7 +178,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
         except Exception as e:
             if verbose:
                 click.echo(f"Warning: Could not update scan history: {e}", err=True)
-        
+
         # Exit with appropriate code
         if scan_result.metadata.errors:
             # Had errors but completed - show error summary
@@ -194,7 +194,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
         else:
             # Clean success
             sys.exit(0)
-            
+
     except DirectoryNotFoundError as e:
         click.echo(f"Error: Directory '{directory}' does not exist or is not accessible.", err=True)
         click.echo("Use --help for usage information.", err=True)
@@ -203,7 +203,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
         click.echo(f"Error: Permission denied accessing directory '{directory}'", err=True)
         sys.exit(2)
     except KeyboardInterrupt:
-        click.echo("\\nScan interrupted by user.", err=True)
+        click.echo("\nScan interrupted by user.", err=True)
         sys.exit(1)
     except Exception as e:
         click.echo(f"Unexpected error: {e}", err=True)
@@ -213,14 +213,14 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
         sys.exit(1)
 
 
-def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector, 
+def _perform_scan(scanner: FileScanner, detector: DuplicateDetector, 
                  reporter: ProgressReporter, directory: Path, recursive: bool,
                  threshold: float, verbose: bool) -> ScanResult:
     """
     Perform the actual scan operation with progress reporting.
     
     Args:
-        scanner: VideoFileScanner instance
+    scanner: FileScanner instance
         detector: DuplicateDetector instance  
         reporter: ProgressReporter instance
         directory: Directory to scan
@@ -239,16 +239,16 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
     metadata.start_time = datetime.now()
     scan_start = time.time()
     
-    # Scan for video files
+    # Scan for files
     if verbose:
         click.echo(f"Scanning directory: {directory}")
     
-    video_files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter))
-    metadata.total_files_found = len(video_files)
+    files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter))
+    metadata.total_files_found = len(files)
     
-    if not video_files:
+    if not files:
         if verbose:
-            click.echo("No video files found.")
+            click.echo("No files found.")
         
         # Complete metadata for empty scan
         metadata.end_time = datetime.now()
@@ -259,37 +259,37 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
         return result
     
     if verbose:
-        click.echo(f"Found {len(video_files)} video files")
+        click.echo(f"Found {len(files)} files")
     
     # Calculate total size
-    total_size = sum(f.size for f in video_files)
+    total_size = sum(f.size for f in files)
     metadata.total_size_scanned = total_size
     
     # Start progress for duplicate detection
-    reporter.start_progress(len(video_files), "Detecting duplicates")
+    reporter.start_progress(len(files), "Detecting duplicates")
     
     try:
         # Find duplicates
         if verbose:
             click.echo("Detecting duplicates...")
         
-        duplicate_groups = detector.find_duplicates(video_files, reporter, verbose)
+        duplicate_groups = detector.find_duplicates(files, reporter, verbose)
         
         # Update progress
-        reporter.update_progress(len(video_files), "Finding potential matches")
+        reporter.update_progress(len(files), "Finding potential matches")
         
         # Find potential matches
         if verbose:
             click.echo(f"Finding potential matches (threshold: {threshold})...")
         
-        potential_matches = detector.find_potential_matches(video_files, threshold=threshold, verbose=verbose)
+        potential_matches = detector.find_potential_matches(files, threshold=threshold, verbose=verbose)
         
     finally:
         reporter.finish_progress()
     
     # Complete metadata
     metadata.end_time = datetime.now()
-    metadata.total_files_processed = len(video_files)
+    metadata.total_files_processed = len(files)
     
     # Calculate duplicate statistics
     total_duplicate_files = sum(len(group.files) for group in duplicate_groups)

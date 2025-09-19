@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from tempfile import TemporaryDirectory
 
-from src.services.video_file_scanner import VideoFileScanner
+from src.services.file_scanner import FileScanner
 from src.services.onedrive_service import OneDriveService
 from src.models.cloud_file_status import CloudFileStatus
 from src.models.video_file import VideoFile
@@ -24,7 +24,7 @@ class TestMixedDirectoryScanIntegration:
     
     def setup_method(self):
         """Set up test environment for each test."""
-        self.scanner = VideoFileScanner()
+        self.scanner = FileScanner()
         self.onedrive_service = OneDriveService()
     
     def test_scanner_initialization_with_onedrive(self):

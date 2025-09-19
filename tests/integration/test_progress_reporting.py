@@ -26,9 +26,7 @@ try:
     from click.testing import CliRunner
 except ImportError:
     # Expected to fail initially - create stubs for testing
-    class VideoFileScanner:
-        def scan_directory(self, directory, recursive=True):
-            raise NotImplementedError("VideoFileScanner not yet implemented")
+    from src.services.file_scanner import FileScanner
     
     class DuplicateDetector:
         def detect_duplicates(self, files):
@@ -64,11 +62,10 @@ class TestProgressReportingIntegration:
     def setup_method(self):
         """Set up test environment for each test."""
         self.temp_dir = tempfile.mkdtemp()
-        self.scanner = VideoFileScanner()
+        self.scanner = FileScanner()
         self.detector = DuplicateDetector()
         self.progress_reporter = ProgressReporter()
         self.cli_runner = CliRunner()
-        
         # Create test video files for progress testing
         self.create_test_videos()
         

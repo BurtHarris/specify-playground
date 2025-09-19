@@ -10,6 +10,7 @@ All tests MUST FAIL initially (TDD requirement) until implementation is complete
 
 import pytest
 import tempfile
+from src.services.file_scanner import FileScanner
 import shutil
 from pathlib import Path
 
@@ -22,7 +23,7 @@ try:
 except ImportError:
     # Expected to fail initially - create stubs for testing
     class VideoFileScanner:
-        def scan_directory(self, directory, recursive=True):
+        def scan_directory(self, directory, recursive=True): 
             raise NotImplementedError("VideoFileScanner not yet implemented")
     
     class DuplicateDetector:
@@ -36,8 +37,9 @@ except ImportError:
         def __init__(self, path, size=None, hash_value=None):
             self.path = Path(path)
             self.size = size or 0
-            self.hash = hash_value
-    
+    class DuplicateDetector:
+        pass
+
     class PotentialMatchGroup:
         def __init__(self, files, similarity_score):
             self.files = files
@@ -50,9 +52,8 @@ class TestFuzzyMatchingIntegration:
     def setup_method(self):
         """Set up test environment for each test."""
         self.temp_dir = tempfile.mkdtemp()
-        self.scanner = VideoFileScanner()
+        self.scanner = FileScanner()
         self.detector = DuplicateDetector()
-        
         # Create test video files with similar names
         self.create_test_videos()
         
@@ -263,7 +264,7 @@ class TestFuzzyMatchingIntegration:
             pytest.fail("Should handle Unicode filenames without errors")
 
     @pytest.mark.integration
-    def test_fuzzy_matching_series_episode_patterns(self):
+    def test_fuzzy_matching_recognizes_tv_series_patterns(self):
         """Test: Fuzzy matching recognizes TV series episode patterns."""
         # Create TV series episodes with different naming conventions
         episode_variants = [
@@ -273,17 +274,14 @@ class TestFuzzyMatchingIntegration:
             "Breaking_Bad_1x01.mp4",
             "BreakingBad_S1E1.mkv"
         ]
-        
         content = b"Breaking Bad episode content" * 1000
         for filename in episode_variants:
             file_path = Path(self.temp_dir) / filename
             with open(file_path, 'wb') as f:
                 f.write(content)
-        
         # Integration test: Should recognize episode pattern similarities
         scanned_files = list(self.scanner.scan_directory(Path(self.temp_dir)))
         potential_matches = self.detector.find_potential_matches(scanned_files, threshold=0.6)
-        
         # Should find matches for Breaking Bad episodes
         episode_match_found = False
         for group in potential_matches:
