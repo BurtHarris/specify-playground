@@ -1,6 +1,6 @@
 # Implementation Plan: Generalize File Support and Add Central Database
 
-**Branch**: `main` | **Date**: September 19, 2025 | **Spec**: [spec.md](./spec.md)
+**Branch**: `004-generalize-file-support` | **Date**: September 19, 2025 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `specs/004-generalize-file-support/spec.md`
 
 ## Progress Tracking
