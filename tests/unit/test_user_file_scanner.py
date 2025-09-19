@@ -107,44 +107,44 @@ class TestFileScanner:
         assert result == []
     
     @patch('os.access')
+    @patch('os.access')
     @patch('pathlib.Path.exists')
     @patch('pathlib.Path.is_dir')
     @patch('pathlib.Path.iterdir')
     @patch('pathlib.Path.stat')
     @patch('pathlib.Path.is_file')
-    def test_scan_directory_with_video_files(self, mock_is_file, mock_stat, mock_iterdir, 
-                                           mock_is_dir, mock_exists, mock_access, scanner):
-        """Test scanning directory with video files."""
+    def test_scan_directory_with_user_files(self, mock_is_file, mock_stat, mock_iterdir, mock_is_dir, mock_exists, mock_access, scanner):
+        """Test scanning directory with UserFiles."""
         mock_exists.return_value = True
         mock_is_dir.return_value = True
         mock_access.return_value = True
-        
+
         # Create mock files
-        video1 = Mock(spec=Path)
-        video1.suffix = '.mp4'
-        video1.is_file.return_value = True
-        video1.stat.return_value.st_size = 1024
-        video1.__str__ = lambda: '/test/video1.mp4'
-        video1.__fspath__ = lambda: '/test/video1.mp4'
-        
-        video2 = Mock(spec=Path)
-        video2.suffix = '.mkv'
-        video2.is_file.return_value = True
-        video2.stat.return_value.st_size = 2048
-        video2.__str__ = lambda: '/test/video2.mkv'
-        video2.__fspath__ = lambda: '/test/video2.mkv'
-        
-        non_video = Mock(spec=Path)
-        non_video.suffix = '.txt'
-        non_video.is_file.return_value = True
-        non_video.__str__ = lambda: '/test/file.txt'
-        non_video.__fspath__ = lambda: '/test/file.txt'
-        
-        mock_iterdir.return_value = [video1, video2, non_video]
-        
+        user_file1 = Mock(spec=Path)
+        user_file1.suffix = '.mp4'
+        user_file1.is_file.return_value = True
+        user_file1.stat.return_value.st_size = 1024
+        user_file1.__str__ = lambda: '/test/user_file1.mp4'
+        user_file1.__fspath__ = lambda: '/test/user_file1.mp4'
+
+        user_file2 = Mock(spec=Path)
+        user_file2.suffix = '.mkv'
+        user_file2.is_file.return_value = True
+        user_file2.stat.return_value.st_size = 2048
+        user_file2.__str__ = lambda: '/test/user_file2.mkv'
+        user_file2.__fspath__ = lambda: '/test/user_file2.mkv'
+
+        non_user_file = Mock(spec=Path)
+        non_user_file.suffix = '.txt'
+        non_user_file.is_file.return_value = True
+        non_user_file.__str__ = lambda: '/test/file.txt'
+        non_user_file.__fspath__ = lambda: '/test/file.txt'
+
+        mock_iterdir.return_value = [user_file1, user_file2, non_user_file]
+
         directory = Path("/test")
         result = list(scanner.scan_directory(directory, recursive=False))
-        
+
         assert len(result) == 2
         assert all(isinstance(f, UserFile) for f in result)
         assert result[0].size == 1024
@@ -164,7 +164,7 @@ class TestFileScanner:
         mock_is_dir.return_value = True
         mock_access.return_value = True
         
-        # Create mock video files in subdirectories
+        # Create mock files in subdirectories
         video1 = Mock(spec=Path)
         video1.suffix = '.mp4'
         video1.is_file.return_value = True
@@ -195,7 +195,7 @@ class TestFileScanner:
         assert 1024 in sizes
         assert 3072 in sizes
         
-        # Verify rglob was called for each video extension
+        # Verify rglob was called for each extension
         assert mock_rglob.call_count == 3
     
     @patch('os.access')
@@ -231,7 +231,7 @@ class TestFileScanner:
         assert len(result) == 1
         assert result[0].size == 1024
         
-        # Verify glob was called for each video extension
+        # Verify glob was called for each extension
         assert mock_glob.call_count == 3
     
     @patch('pathlib.Path.exists')
@@ -309,7 +309,7 @@ class TestFileScanner:
         mock_is_dir.return_value = True
         mock_access.return_value = True
         
-        # Create mock zero-size video file
+        # Create mock zero-size file
         video = Mock(spec=Path)
         video.suffix = '.mp4'
         video.is_file.return_value = True
@@ -341,7 +341,7 @@ class TestFileScanner:
         # Create various file types
         files = []
         
-        # Video files
+        # Files
         for i, ext in enumerate(['.mp4', '.mkv', '.mov', '.MP4'], 1):
             video = MagicMock(spec=Path)
             video.suffix = ext
