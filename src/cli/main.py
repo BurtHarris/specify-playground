@@ -46,9 +46,12 @@ __version__ = "1.0.0"
 @click.option('--verbose/--quiet', default=False, help='Verbose output with detailed progress')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
+@click.option('--cloud-status', type=click.Choice(['local', 'cloud-only', 'all'], case_sensitive=False), 
+              default='all', help='Filter files by OneDrive cloud status: local (local files only), cloud-only (cloud files only), all (no filter, default)')
 @click.version_option(version=__version__, prog_name='video-dedup')
 def main(directory: Path, recursive: bool, export: Optional[Path], 
-         threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool]):
+         threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool], 
+         cloud_status: str):
     """
     Video Duplicate Scanner CLI
     
@@ -91,7 +94,8 @@ def main(directory: Path, recursive: bool, export: Optional[Path],
             directory=directory,
             recursive=recursive,
             threshold=threshold,
-            verbose=verbose
+            verbose=verbose,
+            cloud_status=cloud_status
         )
         
         # Output results (quiet mode shows basic results, verbose shows detailed)
@@ -148,7 +152,7 @@ def main(directory: Path, recursive: bool, export: Optional[Path],
 
 def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector, 
                  reporter: ProgressReporter, directory: Path, recursive: bool,
-                 threshold: float, verbose: bool) -> ScanResult:
+                 threshold: float, verbose: bool, cloud_status: str) -> ScanResult:
     """
     Perform the actual scan operation with progress reporting.
     
@@ -331,3 +335,7 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
 
 if __name__ == '__main__':
     main()
+
+
+# Alias for testing and external imports
+cli = main

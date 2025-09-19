@@ -48,19 +48,19 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_has_is_cloud_only_property(self):
         """VideoFile must have is_cloud_only property."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         assert hasattr(video, 'is_cloud_only'), \
             "VideoFile must have is_cloud_only property"
     
     def test_video_file_has_is_local_property(self):
         """VideoFile must have is_local property."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         assert hasattr(video, 'is_local'), \
             "VideoFile must have is_local property"
     
     def test_video_file_cloud_status_returns_cloud_file_status(self):
         """cloud_status property must return CloudFileStatus enum value."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         status = video.cloud_status
         
         # Should be either LOCAL or CLOUD_ONLY
@@ -69,7 +69,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_is_cloud_only_returns_boolean(self):
         """is_cloud_only property must return boolean value."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         result = video.is_cloud_only
         
         assert isinstance(result, bool), \
@@ -77,7 +77,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_is_local_returns_boolean(self):
         """is_local property must return boolean value."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         result = video.is_local
         
         assert isinstance(result, bool), \
@@ -85,7 +85,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_cloud_status_consistency(self):
         """is_cloud_only and is_local must be mutually exclusive."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         
         is_cloud_only = video.is_cloud_only
         is_local = video.is_local
@@ -96,7 +96,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_cloud_status_matches_properties(self):
         """cloud_status enum value must match boolean properties."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         
         status = video.cloud_status
         is_cloud_only = video.is_cloud_only
@@ -128,7 +128,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_cloud_status_caching(self):
         """cloud_status should be cached for performance."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         
         # First access
         try:
@@ -145,7 +145,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_cloud_service_integration(self):
         """VideoFile must integrate with CloudFileService for status detection."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         
         # VideoFile should have internal CloudFileService integration
         # This tests that cloud status detection is properly integrated
@@ -161,7 +161,7 @@ class TestVideoFileCloudIntegrationContract:
         """VideoFile cloud status must be Windows-platform aware."""
         import platform
         
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         
         if platform.system() != "Windows":
             # On non-Windows platforms, should handle gracefully
@@ -193,7 +193,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_backward_compatibility(self):
         """Enhanced VideoFile must maintain backward compatibility."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         
         # Original VideoFile properties must still exist
         required_attrs = ['path', 'size', 'hash']
@@ -203,7 +203,7 @@ class TestVideoFileCloudIntegrationContract:
     
     def test_video_file_repr_includes_cloud_status(self):
         """VideoFile string representation should include cloud status."""
-        video = VideoFile(Path("test.mp4"))
+        video = VideoFile(Path("temp_test/video1.mp4"))
         repr_str = repr(video)
         
         # Should include cloud status information in representation

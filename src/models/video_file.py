@@ -2,14 +2,18 @@
 """
 VideoFile model for Video Duplicate Scanner CLI.
 
-Represents a single video file in the filesystem with lazy hash computation
-and validation capabilities.
+Represents a single video file in the filesystem with lazy hash computation,
+validation capabilities, and OneDrive cloud status detection.
 """
 
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.cloud_file_status import CloudFileStatus
+    from src.services.cloud_file_service import CloudFileService
 
 
 class VideoFile:
@@ -40,6 +44,8 @@ class VideoFile:
         self._size: Optional[int] = None
         self._hash: Optional[str] = None
         self._last_modified: Optional[datetime] = None
+        self._cloud_status: Optional["CloudFileStatus"] = None
+        self._cloud_service: Optional["CloudFileService"] = None
         
         # Validate file immediately
         self._validate_file()
@@ -73,6 +79,31 @@ class VideoFile:
             timestamp = self._path.stat().st_mtime
             self._last_modified = datetime.fromtimestamp(timestamp)
         return self._last_modified
+    
+    @property
+    def cloud_status(self) -> "CloudFileStatus":
+        """OneDrive cloud status (computed lazily)."""
+        if self._cloud_status is None:
+            if self._cloud_service is None:
+                # Lazy import to avoid circular dependency
+                from src.services.cloud_file_service import CloudFileService
+                self._cloud_service = CloudFileService()
+            self._cloud_status = self._cloud_service.get_file_status(self._path)
+        return self._cloud_status
+    
+    @property
+    def is_cloud_only(self) -> bool:
+        """Check if file is OneDrive cloud-only."""
+        # Lazy import to avoid circular dependency
+        from src.models.cloud_file_status import CloudFileStatus
+        return self.cloud_status == CloudFileStatus.CLOUD_ONLY
+    
+    @property
+    def is_local(self) -> bool:
+        """Check if file is locally available."""
+        # Lazy import to avoid circular dependency
+        from src.models.cloud_file_status import CloudFileStatus
+        return self.cloud_status == CloudFileStatus.LOCAL
     
     def _validate_file(self) -> None:
         """
@@ -174,7 +205,7 @@ class VideoFile:
     
     def __repr__(self) -> str:
         """Detailed string representation for debugging."""
-        return f"VideoFile(path={self._path!r}, size={self.size}, extension='{self.extension}')"
+        return f"VideoFile(path={self._path!r}, size={self.size}, extension='{self.extension}', cloud_status={self.cloud_status})"
     
     def __eq__(self, other) -> bool:
         """
@@ -205,12 +236,15 @@ class VideoFile:
         Convert to dictionary representation for JSON export.
         
         Returns:
-            Dictionary with file information
+            Dictionary with file information including cloud status
         """
         return {
             'path': str(self._path),
             'size': self.size,
             'extension': self.extension,
             'last_modified': self.last_modified.isoformat() + 'Z',
-            'hash': self._hash  # May be None if not computed
+            'hash': self._hash,  # May be None if not computed
+            'cloud_status': self.cloud_status.value,
+            'is_cloud_only': self.is_cloud_only,
+            'is_local': self.is_local
         }
