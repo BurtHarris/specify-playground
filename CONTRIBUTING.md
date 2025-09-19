@@ -21,6 +21,23 @@ Post-/specify checklist
 Notes
 - This CONTRIBUTING file is intentionally minimal; refer to `SPECIFY_ASSUMPTIONS.md` for detailed assumptions, templates, and governance notes.
 
+## OneDrive Integration Testing
+
+OneDrive features require Windows testing due to platform-specific Windows API usage:
+
+- **Windows Required**: OneDrive cloud status detection only works on Windows platforms
+- **Test Coverage**: Include both Windows API tests and cross-platform compatibility tests
+- **Mock Testing**: Use ctypes mocking for non-Windows CI/CD environments
+- **Integration Tests**: Verify OneDrive detection with real files when possible
+- **Error Handling**: Test graceful degradation on non-Windows platforms
+
+Testing checklist for OneDrive features:
+
+- [ ] Windows API detection tests pass on Windows
+- [ ] Non-Windows platforms gracefully degrade to local file handling
+- [ ] Mock tests cover Windows API error conditions
+- [ ] Integration tests verify real file detection accuracy
+
 Commit message template
 -----------------------
 

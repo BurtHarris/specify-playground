@@ -38,6 +38,15 @@ from ..models.scan_metadata import ScanMetadata
 __version__ = "1.0.0"
 
 
+def format_size(bytes_size: int) -> str:
+    """Format file size in human-readable units."""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes_size < 1024:
+            return f"{bytes_size:.1f} {unit}"
+        bytes_size /= 1024
+    return f"{bytes_size:.1f} PB"
+
+
 @click.command()
 @click.argument('directory', type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path))
 @click.option('--recursive/--no-recursive', default=True, help='Scan subdirectories recursively (default: True)')
@@ -46,12 +55,9 @@ __version__ = "1.0.0"
 @click.option('--verbose/--quiet', default=False, help='Verbose output with detailed progress')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
-@click.option('--cloud-status', type=click.Choice(['local', 'cloud-only', 'all'], case_sensitive=False), 
-              default='all', help='Filter files by OneDrive cloud status: local (local files only), cloud-only (cloud files only), all (no filter, default)')
 @click.version_option(version=__version__, prog_name='video-dedup')
 def main(directory: Path, recursive: bool, export: Optional[Path], 
-         threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool], 
-         cloud_status: str):
+         threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool]):
     """
     Video Duplicate Scanner CLI
     
@@ -86,7 +92,7 @@ def main(directory: Path, recursive: bool, export: Optional[Path],
             click.echo(f"Scanning: {directory} ({'recursive' if recursive else 'non-recursive'})")
             click.echo()
         
-        # Perform directory scan
+        # Perform directory scan (cloud detection happens automatically)
         scan_result = _perform_scan(
             scanner=scanner,
             detector=detector, 
@@ -94,12 +100,11 @@ def main(directory: Path, recursive: bool, export: Optional[Path],
             directory=directory,
             recursive=recursive,
             threshold=threshold,
-            verbose=verbose,
-            cloud_status=cloud_status
+            verbose=verbose
         )
         
         # Output results (quiet mode shows basic results, verbose shows detailed)
-        _display_text_results(scan_result, verbose, color)
+        _display_text_results(scan_result, verbose, color, directory)
         
         # Export if requested
         if export:
@@ -152,7 +157,7 @@ def main(directory: Path, recursive: bool, export: Optional[Path],
 
 def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector, 
                  reporter: ProgressReporter, directory: Path, recursive: bool,
-                 threshold: float, verbose: bool, cloud_status: str) -> ScanResult:
+                 threshold: float, verbose: bool) -> ScanResult:
     """
     Perform the actual scan operation with progress reporting.
     
@@ -180,7 +185,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
     if verbose:
         click.echo(f"Scanning directory: {directory}")
     
-    video_files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter, cloud_status=cloud_status))
+    video_files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter))
     metadata.total_files_found = len(video_files)
     
     if not video_files:
@@ -210,7 +215,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
         if verbose:
             click.echo("Detecting duplicates...")
         
-        duplicate_groups = detector.find_duplicates(video_files, reporter)
+        duplicate_groups = detector.find_duplicates(video_files, reporter, verbose)
         
         # Update progress
         reporter.update_progress(len(video_files), "Finding potential matches")
@@ -219,7 +224,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
         if verbose:
             click.echo(f"Finding potential matches (threshold: {threshold})...")
         
-        potential_matches = detector.find_potential_matches(video_files, threshold=threshold)
+        potential_matches = detector.find_potential_matches(video_files, threshold=threshold, verbose=verbose)
         
     finally:
         reporter.finish_progress()
@@ -244,7 +249,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
     return result
 
 
-def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -> None:
+def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool, scan_directory: Path) -> None:
     """Display scan results in human-readable text format."""
     metadata = scan_result.metadata
     
@@ -268,13 +273,13 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
     def info(text: str) -> str:
         return click.style(text, fg='blue') if color else text
     
-    # Format file sizes
-    def format_size(bytes_size: int) -> str:
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if bytes_size < 1024:
-                return f"{bytes_size:.1f} {unit}"
-            bytes_size /= 1024
-        return f"{bytes_size:.1f} PB"
+    def get_relative_path(file_path: Path) -> str:
+        """Get path relative to scan directory, fallback to absolute if not possible."""
+        try:
+            return str(file_path.relative_to(scan_directory))
+        except ValueError:
+            # File is not under scan directory, return absolute path
+            return str(file_path)
     
     # Summary header
     if verbose:
@@ -301,7 +306,7 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
                 click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
                 
                 for file in group.files:
-                    click.echo(f"    {file.path}")
+                    click.echo(f"    {get_relative_path(file.path)}")
         else:
             click.echo(f"\n{success('No duplicate groups found.')}")
         
@@ -313,7 +318,7 @@ def _display_text_results(scan_result: ScanResult, verbose: bool, color: bool) -
                 click.echo(f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})")
                 
                 for file in group.files:
-                    click.echo(f"    {file.path} ({format_size(file.size)})")
+                    click.echo(f"    {get_relative_path(file.path)} ({format_size(file.size)})")
         else:
             click.echo(f"\n{success('No potential matches found.')}")
     else:

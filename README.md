@@ -1,45 +1,131 @@
-# Specify Playground
+# Video Duplicate Scanner CLI
 
-This project is designed to experiment with the Specify methodology in a controlled environment. It includes various specifications and example tests to validate the methodologies being explored.
+A Python CLI tool that scans directories for duplicate video files (mp4, mkv, mov) with OneDrive cloud file detection and filtering capabilities. The tool uses a two-stage detection approach: fast file size comparison followed by hash computation for size-matched files.
 
-## Project Structure
+## Features
 
-- **src/**: Contains the source code for the playground.
-  - **playground/**: Holds the main specification and example tests.
-    - `demo.specify`: The main specification file defining the experiments.
-    - **examples/**: Contains example tests for the specifications.
-      - `example.spec.ts`: Example tests validating the methodologies.
-  - **lib/**: Utility functions and types used throughout the playground.
-    - `index.ts`: Exports helper functions for tests and specifications.
-  - `index.ts`: Entry point for the playground, initializing the environment.
+- **OneDrive Integration**: Detects cloud-only files and local files automatically on Windows
+- **Multi-format Support**: Handles MP4, MKV, and MOV video files
+- **Two-stage Detection**: Fast size comparison followed by hash computation
+- **Cloud Status Filtering**: Filter scans by local files, cloud-only files, or all files
+- **Fuzzy Name Matching**: Identifies potential duplicates across different extensions
+- **Progress Reporting**: Real-time feedback for long-running scans
+- **YAML Export**: Structured output format with cloud status information
+- **Cross-platform**: Works on Windows, macOS, and Linux (OneDrive detection Windows-only)
 
-- **specs/**: Documentation specific to the specifications.
-  - `README.md`: Explains the methodologies and usage of the .specify files.
+## OneDrive Cloud File Detection
 
-- **tests/**: Contains unit tests for the playground functionality.
-  - `playground.test.ts`: Unit tests ensuring specifications behave as expected.
+The scanner automatically detects OneDrive cloud file status on Windows platforms:
 
-- **scripts/**: Scripts for running the playground environment.
-  - `run-playground.sh`: Script to set up and execute the playground.
+- **Local Files**: Fully downloaded and available for processing
+- **Cloud-Only Files**: OneDrive stubs that exist in the cloud but not locally downloaded
 
-- **.gitignore**: Specifies files and directories to be ignored by Git.
+### Windows Requirement
 
-- **package.json**: Configuration file for npm, listing dependencies and scripts.
+OneDrive detection requires Windows and uses Windows API file attributes for cloud status detection. On non-Windows platforms, all files are treated as local.
 
-- **tsconfig.json**: TypeScript configuration file specifying compiler options.
+## Installation
 
-## Getting Started
-
-To get started with the Specify Playground, follow these steps:
-
-1. Clone the repository.
-2. Install the dependencies using `npm install`.
-3. Run the playground using the provided script: `./scripts/run-playground.sh`.
+1. Ensure Python 3.11+ is installed
+2. Clone the repository
+3. Install dependencies: `pip install -r requirements.txt`
 
 ## Usage
 
-You can define your own specifications in the `src/playground/demo.specify` file and create corresponding tests in the `src/playground/examples/example.spec.ts` file. The playground is designed to be flexible and allow for easy experimentation with different methodologies.
+### Basic Scanning
+
+```bash
+# Scan current directory for duplicate videos
+python -m src
+
+# Scan specific directory
+python -m src /path/to/videos
+
+# Recursive scan (default)
+python -m src /path/to/videos --recursive
+
+# Non-recursive scan (current directory only)
+python -m src /path/to/videos --no-recursive
+```
+
+### Cloud Status Filtering
+
+Filter scans based on OneDrive cloud status:
+
+```bash
+# Scan only local files (skip cloud-only files)
+python -m src /path/to/videos --cloud-status local
+
+# Scan only cloud-only files
+python -m src /path/to/videos --cloud-status cloud-only
+
+# Scan all files (default)
+python -m src /path/to/videos --cloud-status all
+```
+
+### Output Formats
+
+```bash
+# YAML output (default)
+python -m src /path/to/videos --output results.yaml
+
+# JSON output
+python -m src /path/to/videos --output results.json
+
+# Display results in terminal
+python -m src /path/to/videos
+```
+
+## Output Format
+
+The tool outputs structured data including cloud status information:
+
+```yaml
+metadata:
+  scan_time: "2025-09-18T10:30:00Z"
+  directory: "/path/to/videos"
+  total_files: 150
+  local_files: 120
+  cloud_only_files: 30
+  
+duplicate_groups:
+  - files:
+    - path: "/path/video1.mp4"
+      size: 1048576
+      cloud_status: "local"
+    - path: "/path/video1_copy.mp4" 
+      size: 1048576
+      cloud_status: "cloud_only"
+      
+potential_matches:
+  - files:
+    - path: "/path/movie.mp4"
+      cloud_status: "local" 
+    - path: "/path/movie.mkv"
+      cloud_status: "cloud_only"
+```
+
+## Architecture
+
+- **Two-stage Detection**: Size comparison → Hash computation for efficiency
+- **OneDrive Integration**: Windows API detection for cloud file status
+- **Memory Efficient**: Streaming hash computation for large files
+- **Error Resilient**: Graceful handling of inaccessible files and permissions
+
+## Performance Impact
+
+OneDrive cloud status detection adds minimal overhead to scanning operations. The detection uses efficient Windows API calls and results are cached per file.
+
+## Error Handling
+
+- **Non-Windows Platforms**: OneDrive detection gracefully degrades to treating all files as local
+- **Permission Errors**: Files that cannot be accessed are skipped with logging
+- **API Failures**: Cloud status detection failures default to treating files as local
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or suggestions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines including Windows testing requirements for OneDrive features.
+
+## Technical Implementation
+
+OneDrive detection uses Windows FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS via ctypes to identify cloud-only files without triggering downloads. This enables efficient scanning of large OneDrive video collections.
