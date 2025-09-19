@@ -16,7 +16,6 @@ from pathlib import Path
 
 # Import modules for integration testing
 try:
-    from src.services.video_file_scanner import VideoFileScanner
     from src.services.duplicate_detector import DuplicateDetector
     from src.models.video_file import VideoFile
     from src.models.potential_match_group import PotentialMatchGroup
