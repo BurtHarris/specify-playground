@@ -9,7 +9,7 @@ import pytest
 from pathlib import Path
 import tempfile
 
-from src.models.video_file import VideoFile
+from src.models.user_file import UserFile
 from src.models.potential_match_group import PotentialMatchGroup
 
 
@@ -17,42 +17,32 @@ class TestPotentialMatchGroup:
     """Test suite for PotentialMatchGroup model."""
     
     @pytest.fixture
-    def sample_video_files(self):
-        """Create sample VideoFile instances for testing."""
+    def sample_user_files(self):
+        """Create sample UserFile instances for testing."""
         files = []
-        video_files = []
-        
+        user_files = []
         # Create temporary files with similar names but different content
         file_names = ['movie.mp4', 'movie2.mkv', 'movieX.mov']
-        
         for name in file_names:
-            # Create temp file and close it before renaming (Windows compatibility)
             with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as f:
-                f.write(name.encode())  # Different content for each
+                f.write(name.encode())
                 temp_path = Path(f.name)
-            
-            # Now rename the closed file
             final_path = temp_path.parent / name
             temp_path.rename(final_path)
             files.append(final_path)
-        
         for file_path in files:
-            video_files.append(VideoFile(file_path))
-        
-        yield video_files
-        
+            user_files.append(UserFile(file_path))
+        yield user_files
         # Cleanup
-        for video_file in video_files:
-            if video_file.path.exists():
-                video_file.path.unlink()
+        for user_file in user_files:
+            if user_file.path.exists():
+                user_file.path.unlink()
     
-    def test_potential_match_group_creation(self, sample_video_files):
+    def test_potential_match_group_creation(self, sample_user_files):
         """Test basic PotentialMatchGroup creation."""
         base_name = "movie"
         threshold = 0.8
-    
-        group = PotentialMatchGroup(base_name, threshold, sample_video_files[:2])
-        
+        group = PotentialMatchGroup(base_name, threshold, sample_user_files[:2])
         assert group.base_name == base_name
         assert group.similarity_threshold == threshold
         assert len(group.files) == 2

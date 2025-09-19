@@ -9,6 +9,11 @@ from typing import Iterator, List, Optional, Set
 from pathlib import Path
 
 from .file import UserFile
+try:
+    # Also accept the concrete implementation type for isinstance checks
+    from .user_file import UserFile as _ConcreteUserFile
+except Exception:
+    _ConcreteUserFile = None
 
 
 class DuplicateGroup:
@@ -101,7 +106,8 @@ class DuplicateGroup:
             ValueError: If file's hash doesn't match group hash
             TypeError: If file is not a UserFile instance
         """
-        if not isinstance(file, UserFile):
+        # Accept either the compatibility wrapper UserFile or the concrete implementation
+        if not (isinstance(file, UserFile) or (_ConcreteUserFile is not None and isinstance(file, _ConcreteUserFile))):
             raise TypeError("Can only add UserFile instances")
         
         # Compute hash if needed and verify it matches

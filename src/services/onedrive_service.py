@@ -1,14 +1,14 @@
 """
 OneDrive Service MVP Implementation for cloud file detection.
 
-This service provides OneDrive integration functionality for the video duplicate scanner.
+This service provides OneDrive integration functionality for the universal file duplicate scanner.
 MVP scope focuses on local Windows API detection without Graph API integration.
 
 Key Features:
 - Windows file attribute detection via Windows API
-- Graceful degradation on non-Windows platforms  
-- CloudFileStatus detection for video files
-- Integration with VideoFileScanner pipeline
+- Graceful degradation on non-Windows platforms
+- CloudFileStatus detection for user files
+- Integration with UserFileScanner pipeline
 """
 
 from pathlib import Path

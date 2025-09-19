@@ -11,7 +11,7 @@ from .progress_reporter import ProgressReporter
 from .result_exporter import ResultExporter, DiskSpaceError
 
 __all__ = [
-    'VideoFileScanner',
+    'UserFileScanner',
     'DuplicateDetector',
     'ProgressReporter',
     'ResultExporter',

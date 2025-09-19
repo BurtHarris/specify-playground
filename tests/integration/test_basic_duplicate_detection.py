@@ -18,11 +18,11 @@ import hashlib
 try:
     from src.services.file_scanner import FileScanner
     from src.services.duplicate_detector import DuplicateDetector
-    from src.models.video_file import VideoFile
+    from src.models.user_file import UserFile
     from src.models.duplicate_group import DuplicateGroup
 except ImportError:
     # Expected to fail initially - create stubs for testing
-    class VideoFileScanner:
+    class UserFileScanner:
         def scan_directory(self, directory, recursive=True):
             raise NotImplementedError("VideoFileScanner not yet implemented")
     
@@ -30,7 +30,7 @@ except ImportError:
         def find_duplicates(self, files):
             raise NotImplementedError("DuplicateDetector not yet implemented")
     
-    class VideoFile:
+    class UserFile:
         def __init__(self, path, size=None, hash_value=None):
             self.path = Path(path)
             self.size = size or 0

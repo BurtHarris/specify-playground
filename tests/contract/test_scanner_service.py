@@ -30,6 +30,11 @@ except ImportError:
     class VideoFile:
         def __init__(self, path):
             self.path = path
+    
+    # Also provide a UserFile alias for compatibility in tests that expect it
+    class UserFile:
+        def __init__(self, path):
+            self.path = path
 
 
 class TestVideoFileScannerContract:

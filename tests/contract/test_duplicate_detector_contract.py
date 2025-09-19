@@ -2,11 +2,7 @@
 """
 DuplicateDetector Service Contract Tests for Video Duplicate Scanner
 
-These tests valid            # Create VideoFile with just path, then set internal attributes
-            video_file = VideoFile(file_path)
-            video_file._size = size
-            video_file._hash = hash_value
-            files.append(video_file)he DuplicateDetector service contract as specified in
+These tests validate the DuplicateDetector service contract as specified in
 specs/001-build-a-cli/contracts/service-apis.md
 
 All tests MUST FAIL initially (TDD requirement) until implementation is complete.
@@ -21,7 +17,7 @@ import hashlib
 # Import the DuplicateDetector service (will fail until implemented)
 try:
     from src.services.duplicate_detector import DuplicateDetector
-    from src.models.video_file import VideoFile
+    from src.models.user_file import UserFile
     from src.models.duplicate_group import DuplicateGroup
     from src.models.potential_match_group import PotentialMatchGroup
 except ImportError:
@@ -33,7 +29,7 @@ except ImportError:
         def find_potential_matches(self, files, threshold=0.8):
             raise NotImplementedError("DuplicateDetector not yet implemented")
     
-    class VideoFile:
+    class UserFile:
         def __init__(self, path):
             self.path = Path(path)
             self.size = 0
@@ -102,7 +98,7 @@ class TestDuplicateDetectorContract:
             f.write(similar_content2)
 
     def create_video_file_objects(self):
-        """Create VideoFile objects from test files."""
+        """Create UserFile objects from test files."""
         files = []
         
         for file_path in [self.duplicate1, self.duplicate2, self.duplicate3, 
@@ -116,8 +112,8 @@ class TestDuplicateDetectorContract:
                     hasher.update(chunk)
             hash_value = hasher.hexdigest()
             
-            # Create VideoFile with just path, then set internal attributes
-            video_file = VideoFile(file_path)
+            # Create UserFile with just path, then set internal attributes
+            video_file = UserFile(file_path)
             video_file._size = size
             video_file._hash = hash_value
             files.append(video_file)
@@ -331,8 +327,8 @@ class TestDuplicateDetectorContract:
             with open(file_path, 'wb') as f:
                 f.write(b"Unicode test content")
                 
-            # Create VideoFile with just path, then set internal size
-            video_file = VideoFile(file_path)
+            # Create UserFile with just path, then set internal size
+            video_file = UserFile(file_path)
             video_file._size = file_path.stat().st_size
             unicode_files.append(video_file)
         

@@ -17,7 +17,7 @@ from pathlib import Path
 # Import modules for integration testing
 try:
     from src.services.duplicate_detector import DuplicateDetector
-    from src.models.video_file import VideoFile
+    from src.models.user_file import UserFile
     from src.models.potential_match_group import PotentialMatchGroup
 except ImportError:
     # Expected to fail initially - create stubs for testing
@@ -32,7 +32,7 @@ except ImportError:
         def calculate_similarity(self, name1, name2):
             raise NotImplementedError("FuzzyMatcher not yet implemented")
     
-    class VideoFile:
+    class UserFile:
         def __init__(self, path, size=None, hash_value=None):
             self.path = Path(path)
             self.size = size or 0

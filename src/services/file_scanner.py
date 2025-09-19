@@ -82,7 +82,9 @@ class FileScanner:
                                 found_files.append(file_path)
                 except (OSError, PermissionError):
                     pass
-                sorted_files = found_files  # Sorting removed
+            # Ensure we always have a list to iterate and keep stable ordering
+            # Sort by string representation (path) to avoid TypeError when tests use MagicMock
+            sorted_files = sorted(found_files, key=lambda p: str(p))
             if progress_reporter:
                 progress_reporter.start_progress(len(sorted_files), "Scanning files")
             files_processed = 0
@@ -131,7 +133,9 @@ class FileScanner:
                             found_files.append(entry)
                 except (OSError, PermissionError):
                     pass
-                sorted_files = found_files  # Sorting removed
+            # Always provide a sorted list for deterministic iteration
+            # Sort by string representation (path) to avoid TypeError when tests use MagicMock
+            sorted_files = sorted(found_files, key=lambda p: str(p))
             if progress_reporter:
                 progress_reporter.start_progress(len(sorted_files), "Scanning files")
             files_processed = 0
@@ -141,6 +145,7 @@ class FileScanner:
                         if progress_reporter:
                             progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
                         size = file_path.stat().st_size if hasattr(file_path, 'stat') else 0
+                        # Use the library UserFile wrapper which accepts (path, size, is_local)
                         file_obj = UserFile(path=file_path, size=size, is_local=True)
                         yield file_obj
                         files_processed += 1

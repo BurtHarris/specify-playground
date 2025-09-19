@@ -16,14 +16,14 @@ from pathlib import Path
 if TYPE_CHECKING:
     from src.services.result_exporter import ResultExporter
     from src.models.scan_result import ScanResult
-    from src.models.video_file import VideoFile
+    from src.models.user_file import UserFile
     from src.models.cloud_file_status import CloudFileStatus
 else:
     # Import existing components
     try:
         from src.services.result_exporter import ResultExporter
         from src.models.scan_result import ScanResult
-        from src.models.video_file import VideoFile
+        from src.models.user_file import UserFile as VideoFile
     except ImportError:
         class ResultExporter:
             pass
@@ -67,7 +67,7 @@ class TestOutputFormatCloudStatusContract:
     def test_video_file_yaml_serialization_includes_cloud_status(self):
         """VideoFile YAML serialization must include cloud status."""
         # Create a VideoFile instance
-        video = VideoFile(Path("temp_test/video1.mp4"))
+        video = UserFile(Path("temp_test/video1.mp4"))
         
         # Check if VideoFile has cloud status properties for serialization
         expected_cloud_attrs = ['cloud_status', 'is_cloud_only', 'is_local']
@@ -77,7 +77,7 @@ class TestOutputFormatCloudStatusContract:
     
     def test_video_file_json_serialization_includes_cloud_status(self):
         """VideoFile JSON serialization must include cloud status."""
-        video = VideoFile(Path("temp_test/video1.mp4"))
+        video = UserFile(Path("temp_test/video1.mp4"))
         
         # Should have cloud status attributes for JSON serialization
         expected_attrs = ['cloud_status', 'is_cloud_only', 'is_local']

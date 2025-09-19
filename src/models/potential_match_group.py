@@ -10,34 +10,38 @@ from typing import Dict, Iterator, List, Optional, Set, Tuple
 from pathlib import Path
 
 from .file import UserFile
+try:
+    from .user_file import UserFile as _ConcreteUserFile
+except Exception:
+    _ConcreteUserFile = None
 
 
 class PotentialMatchGroup:
-    """Represents a group of video files with similar names but different content."""
+    """Represents a group of files with similar names but different content."""
     
     def __init__(self, base_name: str, similarity_threshold: float = 0.8, files: Optional[List[UserFile]] = None):
         """
         Initialize a PotentialMatchGroup.
-        
+
         Args:
             base_name: The common base name that files in this group share similarity with
             similarity_threshold: Minimum similarity score for files to be in this group (0.0-1.0)
             files: Optional initial list of UserFile objects
-            
+
         Raises:
             ValueError: If base_name is empty or similarity_threshold is invalid
         """
         if not base_name or not base_name.strip():
             raise ValueError("Base name cannot be empty")
-        
+
         if not (0.0 <= similarity_threshold <= 1.0):
             raise ValueError("Similarity threshold must be between 0.0 and 1.0")
-        
+
         self._base_name = base_name.strip()
         self._similarity_threshold = similarity_threshold
-    self._files = set()
-    self._similarity_scores = {}
-        
+        self._files = set()
+        self._similarity_scores = {}
+
         if files:
             for file in files:
                 self.add_file(file)
@@ -54,7 +58,7 @@ class PotentialMatchGroup:
     
     @property
     def files(self) -> List[UserFile]:
-        """List of video files in this group, sorted by similarity score (descending)."""
+        """List of files in this group, sorted by similarity score (descending)."""
         return sorted(
             self._files, 
             key=lambda f: self._similarity_scores.get(f, 0.0), 
@@ -122,7 +126,8 @@ class PotentialMatchGroup:
             ValueError: If similarity score is below threshold
             TypeError: If file is not a UserFile instance
         """
-        if not isinstance(file, UserFile):
+        # Accept either the compatibility wrapper UserFile or the concrete implementation
+        if not (isinstance(file, UserFile) or (_ConcreteUserFile is not None and isinstance(file, _ConcreteUserFile))):
             raise TypeError("Can only add UserFile instances")
         
         # Compute similarity score if not provided

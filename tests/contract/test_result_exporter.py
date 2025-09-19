@@ -17,7 +17,7 @@ import shutil
 
 # Import the classes under test
 from src.services.result_exporter import ResultExporter
-from src.models.video_file import VideoFile
+from src.models.user_file import UserFile
 from src.models.duplicate_group import DuplicateGroup
 from src.models.potential_match_group import PotentialMatchGroup
 from src.models.scan_result import ScanResult
@@ -59,35 +59,35 @@ class TestResultExporterContract:
         video3_path.write_bytes(b"fake video content")
         video4_path.write_bytes(b"fake video content")
         
-        # Create VideoFile objects
-        video1 = VideoFile(video1_path)
+        # Create UserFile objects
+        video1 = UserFile(video1_path)
         video1._size = 1500000
         video1._hash = "hash123"
-        
-        video2 = VideoFile(video2_path)
+
+        video2 = UserFile(video2_path)
         video2._size = 1500000
         video2._hash = "hash123"
-        
-        video3 = VideoFile(video3_path)
+
+        video3 = UserFile(video3_path)
         video3._size = 2000000
         video3._hash = "hash456"
-        
-        video4 = VideoFile(video4_path)
+
+        video4 = UserFile(video4_path)
         video4._size = 2000000
         video4._hash = "hash789"
-        
+
         # Create duplicate group
         duplicate_group = DuplicateGroup("hash123", [video1, video2])
-        
+
         # Create potential match group
         potential_group = PotentialMatchGroup("similar_name", 0.95, [video3, video4])
-        
+
         # Create scan result
         metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
         result = ScanResult(metadata)
         result.duplicate_groups = [duplicate_group]
         result.potential_matches = [potential_group]
-        
+
         return result
 
     @pytest.mark.contract
@@ -136,11 +136,11 @@ class TestResultExporterContract:
         emoji_path.write_bytes(b"fake video content")
         
         # Create VideoFile objects
-        unicode_video = VideoFile(unicode_path)
+        unicode_video = UserFile(unicode_path)
         unicode_video._size = 1000
         unicode_video._hash = "hash_unicode"
         
-        emoji_video = VideoFile(emoji_path)
+        emoji_video = UserFile(emoji_path)
         emoji_video._size = 1000
         emoji_video._hash = "hash_unicode"  # Same hash for duplicate group
         
@@ -177,15 +177,15 @@ class TestResultExporterContract:
         large_path.write_bytes(b"fake video content")
         
         # Create VideoFile objects
-        small_file = VideoFile(small_path)
+        small_file = UserFile(small_path)
         small_file._size = 1024  # 1 KB
         small_file._hash = "hash1"
         
-        medium_file = VideoFile(medium_path)
+        medium_file = UserFile(medium_path)
         medium_file._size = 1048576  # 1 MB
         medium_file._hash = "hash1"  # Same hash for duplicate group
         
-        large_file = VideoFile(large_path)
+        large_file = UserFile(large_path)
         large_file._size = 1073741824  # 1 GB
         large_file._hash = "hash1"  # Same hash for duplicate group
         

@@ -16,7 +16,7 @@ from tempfile import TemporaryDirectory
 from src.services.file_scanner import FileScanner
 from src.services.onedrive_service import OneDriveService
 from src.models.cloud_file_status import CloudFileStatus
-from src.models.video_file import VideoFile
+from src.models.user_file import UserFile
 
 
 class TestMixedDirectoryScanIntegration:
@@ -78,7 +78,7 @@ class TestMixedDirectoryScanIntegration:
             
             # Each file should have cloud status detected
             for video_file in video_files:
-                assert isinstance(video_file, VideoFile)
+                assert isinstance(video_file, UserFile)
                 assert hasattr(video_file, 'cloud_status')
                 
                 # Cloud status should be detected (likely LOCAL for temp files)
@@ -215,7 +215,7 @@ class TestMixedDirectoryScanIntegration:
                 
                 # Files with detection errors should default to LOCAL
                 for video_file in video_files:
-                    # The VideoFile should handle detection failures gracefully
+                    # The UserFile should handle detection failures gracefully
                     status = video_file.cloud_status
                     assert status == CloudFileStatus.LOCAL  # Fallback behavior
     

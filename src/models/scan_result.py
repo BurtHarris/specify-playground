@@ -22,14 +22,14 @@ class ScanResult:
     def __init__(self, metadata: ScanMetadata):
         """
         Initialize a ScanResult with metadata.
-        
+
         Args:
             metadata: ScanMetadata object containing scan configuration and statistics
         """
         self.metadata = metadata
         self.duplicate_groups: List[DuplicateGroup] = []
         self.potential_match_groups: List[PotentialMatchGroup] = []
-    self._all_files = None  # Cached set of all files
+        self._all_files = None  # Cached set of all files
     
     @property
     def has_duplicates(self) -> bool:

@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 import hashlib
 
-from src.models.video_file import VideoFile
+from src.models.user_file import UserFile
 from src.models.duplicate_group import DuplicateGroup
 
 
@@ -20,42 +20,33 @@ class TestDuplicateGroup:
     @pytest.fixture
     def sample_content_and_hash(self):
         """Create sample content and its hash for testing."""
-        content = b"identical content for testing duplicate videos"
-        # Compute the actual hash using the same algorithm as VideoFile
+        content = b"identical content for testing duplicate files"
         hash_obj = hashlib.blake2b()
         hash_obj.update(content)
         hash_value = hash_obj.hexdigest()
         return content, hash_value
     
     @pytest.fixture
-    def sample_video_files(self, sample_content_and_hash):
-        """Create sample VideoFile instances for testing."""
+    def sample_user_files(self, sample_content_and_hash):
+        """Create sample UserFile instances for testing."""
         content, hash_value = sample_content_and_hash
         files = []
-        video_files = []
-        
-        # Create temporary files with identical content (for same hash)
+        user_files = []
         for i in range(3):
             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as f:
                 f.write(content)
                 files.append(Path(f.name))
-        
         for file_path in files:
-            video_files.append(VideoFile(file_path))
-        
-        yield video_files, hash_value
-        
-        # Cleanup
+            user_files.append(UserFile(file_path))
+        yield user_files, hash_value
         for file_path in files:
             if file_path.exists():
                 file_path.unlink()
     
-    def test_duplicate_group_creation(self, sample_video_files):
+    def test_duplicate_group_creation(self, sample_user_files):
         """Test basic DuplicateGroup creation."""
-        video_files, hash_value = sample_video_files
-        
-        group = DuplicateGroup(hash_value, video_files[:2])
-        
+        user_files, hash_value = sample_user_files
+        group = DuplicateGroup(hash_value, user_files[:2])
         assert group.hash_value == hash_value
         assert len(group.files) == 2
     
@@ -214,7 +205,7 @@ class TestDuplicateGroup:
             different_file_path = Path(f.name)
         
         try:
-            different_file = VideoFile(different_file_path)
+            different_file = UserFile(different_file_path)
             
             with pytest.raises(ValueError, match="File hash .* doesn't match group hash"):
                 group.add_file(different_file)
