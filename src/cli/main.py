@@ -180,7 +180,7 @@ def _perform_scan(scanner: VideoFileScanner, detector: DuplicateDetector,
     if verbose:
         click.echo(f"Scanning directory: {directory}")
     
-    video_files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter))
+    video_files = list(scanner.scan_directory(directory, recursive=recursive, metadata=metadata, progress_reporter=reporter, cloud_status=cloud_status))
     metadata.total_files_found = len(video_files)
     
     if not video_files:

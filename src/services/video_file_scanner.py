@@ -29,13 +29,16 @@ class VideoFileScanner:
         """Initialize the VideoFileScanner."""
         pass
     
-    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None) -> Iterator[VideoFile]:
+    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None, cloud_status: str = 'all') -> Iterator[VideoFile]:
         """
         Discover video files in the specified directory.
         
         Args:
             directory: Root directory to scan
             recursive: Whether to scan subdirectories (default: True)
+            metadata: Optional metadata object to track errors
+            progress_reporter: Optional progress reporter for feedback
+            cloud_status: Filter by cloud status: 'all', 'local', 'cloud-only' (default: 'all')
             
         Returns:
             Iterator of VideoFile instances
@@ -60,19 +63,22 @@ class VideoFileScanner:
         # Scan for video files
         try:
             if recursive:
-                yield from self._scan_recursive(directory, metadata, progress_reporter)
+                yield from self._scan_recursive(directory, metadata, progress_reporter, cloud_status)
             else:
-                yield from self._scan_non_recursive(directory, metadata, progress_reporter)
+                yield from self._scan_non_recursive(directory, metadata, progress_reporter, cloud_status)
         except PermissionError:
             # Re-raise permission errors for the directory itself
             raise PermissionError(f"Permission denied scanning directory: {directory}")
     
-    def _scan_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[VideoFile]:
+    def _scan_recursive(self, directory: Path, metadata=None, progress_reporter=None, cloud_status: str = 'all') -> Iterator[VideoFile]:
         """
         Recursively scan directory for video files.
         
         Args:
             directory: Directory to scan recursively
+            metadata: Optional metadata object to track errors
+            progress_reporter: Optional progress reporter for feedback  
+            cloud_status: Filter by cloud status: 'all', 'local', 'cloud-only'
             
         Yields:
             VideoFile instances for discovered video files
@@ -125,7 +131,10 @@ class VideoFileScanner:
                         if progress_reporter:
                             progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
                         
-                        yield VideoFile(file_path)
+                        # Create VideoFile and apply cloud status filtering
+                        video_file = VideoFile(file_path)
+                        if self._should_include_file(video_file, cloud_status):
+                            yield video_file
                         files_processed += 1
                     except (ValueError, FileNotFoundError, PermissionError) as e:
                         # Track error in metadata if provided
@@ -147,12 +156,15 @@ class VideoFileScanner:
             # Continue processing other directories
             pass
     
-    def _scan_non_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[VideoFile]:
+    def _scan_non_recursive(self, directory: Path, metadata=None, progress_reporter=None, cloud_status: str = 'all') -> Iterator[VideoFile]:
         """
         Scan only the root level of directory for video files.
         
         Args:
-            directory: Directory to scan (root level only)
+            directory: Directory to scan (non-recursive)
+            metadata: Optional metadata object to track errors
+            progress_reporter: Optional progress reporter for feedback
+            cloud_status: Filter by cloud status: 'all', 'local', 'cloud-only'
             
         Yields:
             VideoFile instances for discovered video files
@@ -199,7 +211,10 @@ class VideoFileScanner:
                         if progress_reporter:
                             progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
                         
-                        yield VideoFile(file_path)
+                        # Create VideoFile and apply cloud status filtering
+                        video_file = VideoFile(file_path)
+                        if self._should_include_file(video_file, cloud_status):
+                            yield video_file
                         files_processed += 1
                     except (ValueError, FileNotFoundError, PermissionError) as e:
                         # Track error in metadata if provided
@@ -311,6 +326,27 @@ class VideoFileScanner:
         except (OSError, ValueError, TypeError):
             # Any other errors mean file is not valid
             return False
+    
+    def _should_include_file(self, video_file: VideoFile, cloud_status: str) -> bool:
+        """
+        Determine if a video file should be included based on cloud status filtering.
+        
+        Args:
+            video_file: VideoFile instance to check
+            cloud_status: Filter criteria ('all', 'local', 'cloud-only')
+            
+        Returns:
+            True if file should be included in results
+        """
+        if cloud_status == 'all':
+            return True
+        elif cloud_status == 'local':
+            return video_file.is_local
+        elif cloud_status == 'cloud-only':
+            return video_file.is_cloud_only
+        else:
+            # Unknown filter - default to include all files
+            return True
     
     def get_supported_extensions(self) -> Set[str]:
         """
