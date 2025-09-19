@@ -24,6 +24,7 @@ dependencies = [
     "PyYAML>=6.0",
     "fuzzywuzzy>=0.18.0",
     "python-Levenshtein>=0.12.0",
+    # OneDrive MVP: Uses ctypes (standard library) for Windows API
 ]
 
 [project.optional-dependencies]
@@ -56,6 +57,8 @@ extend-exclude = '''
   | dist
 )/
 '''
+# OneDrive MVP: Handle Windows API constants formatting
+skip-string-normalization = false
 
 [tool.mypy]
 python_version = "3.12"
@@ -63,6 +66,25 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+
+# OneDrive MVP: Windows API specific configurations
+[[tool.mypy.overrides]]
+module = "src.lib.windows_onedrive_api"
+# Allow platform-specific imports and ctypes usage
+ignore_missing_imports = true
+# Allow Any types for Windows API return values
+disallow_any_expr = false
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = [
+    "E203",  # whitespace before ':'
+    "W503",  # line break before binary operator
+]
+# OneDrive MVP: Allow Windows-specific code patterns
+per-file-ignores = [
+    "src/lib/windows_onedrive_api.py:F401",  # Allow unused imports for platform detection
+]
 
 [tool.coverage.run]
 source = ["src"]
