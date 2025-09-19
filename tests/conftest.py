@@ -33,3 +33,4 @@ def sample_video_files(request, tmp_path):
     # Some tests expect a tuple (files, hash_value) in specific places; the
     # contract tests usually just need files, so return the list.
     return files
+

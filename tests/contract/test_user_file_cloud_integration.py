@@ -55,3 +55,4 @@ class TestUserFileCloudIntegrationContract:
             # If detection raises, that's acceptable at contract stage, but attribute must exist
             assert hasattr(user, 'cloud_status')
 
+
