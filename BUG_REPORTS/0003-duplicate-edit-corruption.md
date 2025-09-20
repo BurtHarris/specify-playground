@@ -3,7 +3,7 @@ Title: Duplicate/overlapping programmatic edits produce malformed Python files (
 Summary (high priority: Python indentation/parse errors):
 Programmatic edits are producing duplicated or overlapping Python code blocks which result in Python parse errors — frequently IndentationError — at import/compile time. The most visible symptom is an unexpected IndentationError when running `python -m py_compile` or during pytest collection. This is a class-level issue (affecting programmatic patch/replace workflows), not limited to a single file. Example affected file: `src/services/file_scanner.py` on branch `004-generalize-file-support`.
 
-Severity: P1 (blocks CI/test collection)
+Severity: TBD — priority to be decided by triage team
 
 Reproduction (example):
 1. On branch `004-generalize-file-support`, open `src/services/file_scanner.py`.
@@ -49,6 +49,16 @@ Owner and triage:
 Next steps I can take:
 - Create the suggested git tag locally and attempt to push it to origin (note: push may fail if remote credentials or network not available).
 - Produce a PR with an atomic overwrite of the broken file and run `python -m py_compile` as part of the PR checks.
+
+Configuration and environment tested
+- VS Code: tested on both Stable and Insiders builds (same behavior observed).
+- Copilot / extension: tested with the active Copilot extension and with the programmatic patch/apply workflow used in this repo.
+- LLMs: multiple LLM backends were used; the issue reproduces across LLMs when the patcher applies edits programmatically.
+- OS / shell: Windows developer environment, PowerShell (`pwsh.exe`) used as the default shell in tests and runs.
+- Python: project targets Python 3.12+; syntax/compile checks were run with the local Python interpreter via `python -m py_compile`.
+
+Operational observation
+- Manual execution in the integrated or external terminal (running the same commands interactively) succeeds, while the programmatic single-command execution path used by the automated patch/apply flow can produce the malformed file. This suggests the problem is in the programmatic apply step or the way edits are streamed/applied, not in the Python interpreter or the manual command itself.
 
 Contact:
 - Provide the developer who ran these changes for follow-up and context (session logs available in workspace).
