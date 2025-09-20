@@ -28,6 +28,12 @@ class TestPotentialMatchGroup:
                 f.write(name.encode())
                 temp_path = Path(f.name)
             final_path = temp_path.parent / name
+            # If a file with the target name already exists (test flakiness), remove it first
+            try:
+                if final_path.exists():
+                    final_path.unlink()
+            except Exception:
+                pass
             temp_path.rename(final_path)
             files.append(final_path)
         for file_path in files:

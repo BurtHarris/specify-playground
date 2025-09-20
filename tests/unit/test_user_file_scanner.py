@@ -143,7 +143,7 @@ class TestFileScanner:
         mock_iterdir.return_value = [user_file1, user_file2, non_user_file]
 
         directory = Path("/test")
-        result = list(scanner.scan_directory(directory, recursive=False))
+        result = list(scanner.scan(directory))
 
         assert len(result) == 2
         assert all(isinstance(f, UserFile) for f in result)
@@ -187,7 +187,7 @@ class TestFileScanner:
         }.get(pattern, [])
         
         directory = Path("/test")
-        result = list(scanner.scan_directory(directory, recursive=True))
+        result = list(scanner.scan_recursive(directory))
         
         assert len(result) == 2
         # Check sizes are present but don't assume order
@@ -226,7 +226,7 @@ class TestFileScanner:
         }.get(pattern, [])
         
         directory = Path("/test")
-        result = list(scanner.scan_directory(directory, recursive=False))
+        result = list(scanner.scan(directory))
         
         assert len(result) == 1
         assert result[0].size == 1024
@@ -286,7 +286,7 @@ class TestFileScanner:
         mock_iterdir.return_value = [video1, video2]
         
         directory = Path("/test")
-        result = list(scanner.scan_directory(directory, recursive=False))
+        result = list(scanner.scan(directory))
         
         # Current implementation skips files with stat errors in validate_file
         # So we expect only the successful file, but the implementation actually
@@ -320,7 +320,7 @@ class TestFileScanner:
         mock_iterdir.return_value = [video]
         
         directory = Path("/test")
-        result = list(scanner.scan_directory(directory, recursive=False))
+        result = list(scanner.scan(directory))
         
         # Zero-size files should be skipped
         assert len(result) == 0
@@ -370,7 +370,7 @@ class TestFileScanner:
         mock_iterdir.return_value = files
         
         directory = Path("/test")
-        result = list(scanner.scan_directory(directory, recursive=False))
+        result = list(scanner.scan(directory))
         
         # Should only return the 4 video files
         assert len(result) == 4

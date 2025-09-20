@@ -55,18 +55,18 @@ class TestDuplicateGroup:
         with pytest.raises(ValueError, match="Hash value cannot be empty"):
             DuplicateGroup("")
     
-    def test_duplicate_group_creation_no_files(self, sample_video_files):
+    def test_duplicate_group_creation_no_files(self, sample_user_files):
         """Test creating group with hash but no files."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         
         group = DuplicateGroup(hash_value)
         
         assert group.hash_value == hash_value
         assert len(group.files) == 0
     
-    def test_add_file_to_group(self, sample_video_files):
+    def test_add_file_to_group(self, sample_user_files):
         """Test adding files to a group."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value)
         
         for video_file in video_files:
@@ -76,9 +76,9 @@ class TestDuplicateGroup:
         for video_file in video_files:
             assert video_file in group.files
     
-    def test_remove_file_from_group(self, sample_video_files):
+    def test_remove_file_from_group(self, sample_user_files):
         """Test removing files from a group."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files)
         file_to_remove = video_files[0]
         
@@ -87,9 +87,9 @@ class TestDuplicateGroup:
         assert file_to_remove not in group.files
         assert len(group.files) == len(video_files) - 1
     
-    def test_remove_file_not_in_group_error(self, sample_video_files):
+    def test_remove_file_not_in_group_error(self, sample_user_files):
         """Test that removing non-existent file returns False."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files[:1])
         
         # Try to remove a file that wasn't added to the group
@@ -97,24 +97,24 @@ class TestDuplicateGroup:
         result = group.remove_file(video_files[1])
         assert result is False  # Should return False when file not found
     
-    def test_total_size_property(self, sample_video_files):
+    def test_total_size_property(self, sample_user_files):
         """Test total_size property calculation."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files)
         
         expected_size = sum(f.size for f in video_files)
         assert group.total_size == expected_size
     
-    def test_total_size_empty_group(self, sample_video_files):
+    def test_total_size_empty_group(self, sample_user_files):
         """Test total_size for empty group."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value)
         
         assert group.total_size == 0
     
-    def test_wasted_space_property(self, sample_video_files):
+    def test_wasted_space_property(self, sample_user_files):
         """Test wasted_space property calculation."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files)
         
         if len(video_files) > 1:
@@ -125,17 +125,17 @@ class TestDuplicateGroup:
         else:
             assert group.wasted_space == 0
     
-    def test_file_count_property(self, sample_video_files):
+    def test_file_count_property(self, sample_user_files):
         """Test file_count property."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files)
         
         assert group.file_count == len(video_files)
     
-    def test_group_id_uniqueness(self, sample_video_files):
+    def test_group_id_uniqueness(self, sample_user_files):
         """Test that each group gets a unique hash."""
-        video_files, hash_value = sample_video_files
-        
+        video_files, hash_value = sample_user_files
+
         group1 = DuplicateGroup(hash_value, video_files[:1])
         group2 = DuplicateGroup(hash_value, video_files[1:2])
         
@@ -144,9 +144,9 @@ class TestDuplicateGroup:
         # This test verifies the hash-based equality works correctly
         assert group1 != group2  # Different files means different groups
     
-    def test_group_id_format(self, sample_video_files):
+    def test_group_id_format(self, sample_user_files):
         """Test that group hash value follows expected format."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files[:2])
         
         # Hash value should be a non-empty string
@@ -154,19 +154,19 @@ class TestDuplicateGroup:
         assert len(group.hash_value) > 0
         assert group.hash_value == hash_value
     
-    def test_str_representation(self, sample_video_files):
+    def test_str_representation(self, sample_user_files):
         """Test string representation of DuplicateGroup."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files[:2])
         str_repr = str(group)
         
         assert "DuplicateGroup" in str_repr
         assert "files=2" in str_repr
     
-    def test_equality_comparison(self, sample_video_files):
+    def test_equality_comparison(self, sample_user_files):
         """Test equality comparison between groups."""
-        video_files, hash_value = sample_video_files
-        
+        video_files, hash_value = sample_user_files
+
         group1 = DuplicateGroup(hash_value, video_files[:2])
         group2 = DuplicateGroup(hash_value, video_files[:2])  # Same files
         
@@ -177,9 +177,9 @@ class TestDuplicateGroup:
         assert group1 == group2
         assert group1 != group3
     
-    def test_to_dict(self, sample_video_files):
+    def test_to_dict(self, sample_user_files):
         """Test to_dict method."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value, video_files[:2])
         
         data = group.to_dict()
@@ -194,9 +194,9 @@ class TestDuplicateGroup:
         assert data['file_count'] == 2
         assert len(data['files']) == 2
     
-    def test_add_file_wrong_hash_error(self, sample_video_files):
+    def test_add_file_wrong_hash_error(self, sample_user_files):
         """Test that adding file with wrong hash raises error."""
-        video_files, hash_value = sample_video_files
+        video_files, hash_value = sample_user_files
         group = DuplicateGroup(hash_value)
         
         # Create a file with different content (different hash)

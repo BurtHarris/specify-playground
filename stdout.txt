@@ -1,0 +1,60 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-8.4.2, pluggy-1.6.0
+rootdir: E:\specify-playground
+configfile: pytest.ini
+plugins: cov-7.0.0, mock-3.15.1
+collected 11 items
+
+tests\unit\test_user_file_scanner.py ....FF..F..                         [100%]
+
+================================== FAILURES ===================================
+_____________ TestFileScanner.test_scan_directory_with_user_files _____________
+tests\unit\test_user_file_scanner.py:148: in test_scan_directory_with_user_files
+    assert len(result) == 2
+E   assert 0 == 2
+E    +  where 0 = len([])
+________________ TestFileScanner.test_scan_directory_recursive ________________
+tests\unit\test_user_file_scanner.py:192: in test_scan_directory_recursive
+    assert len(result) == 2
+E   assert 0 == 2
+E    +  where 0 = len([])
+_______________ TestFileScanner.test_scan_directory_stat_error ________________
+tests\unit\test_user_file_scanner.py:295: in test_scan_directory_stat_error
+    assert len(result) <= 1  # Either 0 or 1 depending on implementation
+    ^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 2 <= 1
+E    +  where 2 = len([UserFile(path=<MagicMock spec='Path' id='2067912072592'>, size=1024, extension='.mp4', cloud_status=CloudFileStatus.LOCAL), <[OSError('Stat failed') raised in repr()] UserFile object at 0x1e176f5fd10>])
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.12.10-final-0 _______________
+
+Name                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------
+src\__init__.py                           0      0   100%
+src\__main__.py                           0      0   100%
+src\cli\__init__.py                       2      2     0%   7-9
+src\cli\config_commands.py              150    150     0%   9-232
+src\cli\main.py                         234    234     0%   9-427
+src\models\__init__.py                    6      0   100%
+src\models\cloud_file_status.py          27      9    67%   52-58, 63, 68, 73, 78
+src\models\duplicate_group.py           111     69    38%   15-16, 33-41, 46, 51, 56, 61, 66, 71, 76, 86-91, 96, 110-120, 132-136, 148-155, 167, 179-180, 192-198, 211-221, 230-233, 242-245, 254-257, 261, 265, 269, 273, 294-297, 304, 313
+src\models\file.py                       36     20    44%   29-32, 35-45, 58-60, 63, 67-70
+src\models\potential_match_group.py     155    104    33%   15-16, 34-47, 52, 57, 62, 71, 76, 81, 86, 91, 96, 101-104, 109, 114, 130-144, 156-161, 173-181, 193, 205-206, 218-224, 236, 248-249, 258-261, 270, 289-301, 316-329, 341-356, 360, 364, 368, 372, 393-396, 404, 413
+src\models\scan_metadata.py             102     66    35%   25-59, 63, 67, 77-81, 91-92, 97, 102, 112-116, 126-130, 140-143, 153-156, 166-169, 179-182, 193-199, 209-214, 223-224, 233-234, 244-245, 254, 278, 293-295, 318
+src\models\scan_result.py               139     94    32%   29-36, 41, 46, 51, 56, 61, 66, 71, 76, 81-92, 97, 110-123, 136-146, 158-169, 181-189, 203-217, 229-236, 248-255, 267-274, 286-292, 301-318, 327, 339, 351, 363, 370, 392
+src\models\user_file.py                  94     49    48%   26-32, 44-45, 54, 68-81, 89-96, 104, 111-112, 118, 130-132, 138, 144-146, 162-164, 172, 188-189, 196-198
+src\services\__init__.py                  6      0   100%
+src\services\cloud_file_service.py       30     30     0%   8-102
+src\services\duplicate_detector.py      151    138     9%   46-137, 162-241, 256-262, 281-314
+src\services\file_scanner.py            286    168    41%   37, 69-70, 85-86, 89, 97-99, 109, 116, 121-128, 131, 140-142, 146-148, 153-155, 170-258, 273-342, 390, 395-398, 403-404, 406, 411-412, 414, 419-420, 422, 427-431, 444-445, 459-462, 466-474, 497, 500-504, 513, 525
+src\services\onedrive_service.py         32     32     0%   14-148
+src\services\progress_reporter.py        99     82    17%   19-31, 35-46, 50-61, 65-72, 76, 80-84, 88-120, 124-130, 134-145, 149, 154
+src\services\result_exporter.py          48     35    27%   27-38, 42, 92-106, 115-130
+src\services\video_file_scanner.py        7      0   100%
+-------------------------------------------------------------------
+TOTAL                                  1715   1282    25%
+Coverage HTML written to dir htmlcov
+=========================== short test summary info ===========================
+FAILED tests/unit/test_user_file_scanner.py::TestFileScanner::test_scan_directory_with_user_files
+FAILED tests/unit/test_user_file_scanner.py::TestFileScanner::test_scan_directory_recursive
+FAILED tests/unit/test_user_file_scanner.py::TestFileScanner::test_scan_directory_stat_error
+========================= 3 failed, 8 passed in 0.55s =========================

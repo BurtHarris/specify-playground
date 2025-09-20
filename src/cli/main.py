@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Main CLI entry point for Universal File Duplicate Scanner.
+Main CLI entry point for Video Duplicate Scanner.
 
 This module provides the command-line interface using Click framework
 with Python version validation and comprehensive error handling for universal file duplicate detection.
@@ -57,21 +57,25 @@ def format_size(bytes_size: int) -> str:
 @click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
-@click.version_option(version=__version__, prog_name='video-dedup')
+@click.option('--cloud-status', '-c', type=click.Choice(['all', 'local', 'cloud-only'], case_sensitive=False), default=None, help='Filter files by cloud status (all/local/cloud-only).')
+@click.version_option(version=__version__, prog_name='Video Duplicate Scanner')
 def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path], 
-         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
+         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool], cloud_status: Optional[str]):
     """
-    Universal File Duplicate Scanner CLI
-    
+    Video Duplicate Scanner CLI
+
     Scans directories for duplicate files of any type using size comparison
     followed by hash computation for performance optimization.
-    
+
     Supports all file types with configurable filtering.
-    
+
     Use 'file-dedup scan DIRECTORY' to scan a directory.
     Use 'file-dedup config' commands to manage configuration.
     """
-    # If no command is given, show help
+    # If invoked without a subcommand, show help. Use the 'scan' subcommand
+    # explicitly for scanning. Module-level invocation rewrites (in
+    # src.__main__) insert 'scan' when appropriate so subprocess-style calls
+    # like `python -m src <DIR>` will still map to the scan flow.
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help(), color=ctx.color)
         ctx.exit()
@@ -85,8 +89,9 @@ def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path],
 @click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
+@click.option('--cloud-status', '-c', type=click.Choice(['all', 'local', 'cloud-only'], case_sensitive=False), default=None, help='Filter files by cloud status (all/local/cloud-only).')
 def scan(directory: Path, recursive: Optional[bool], export: Optional[Path], 
-        threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
+    threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool], cloud_status: Optional[str]):
     """Scan DIRECTORY for duplicate files of any type."""
     # Load configuration for defaults
     config_manager = ConfigManager()
@@ -108,12 +113,16 @@ def scan(directory: Path, recursive: Optional[bool], export: Optional[Path],
         progress = config_settings.get('show_progress')
     
     # Run the scan
-    _run_scan(directory, recursive, export, threshold, verbose, progress, color, config_manager)
+    # If user didn't provide cloud_status, default to config or 'local'
+    if cloud_status is None:
+        cloud_status = config_settings.get('cloud_status', 'local')
+
+    _run_scan(directory, recursive, export, threshold, verbose, progress, color, config_manager, cloud_status=cloud_status)
 
 
 def _run_scan(directory: Path, recursive: bool, export: Optional[Path], 
               threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool],
-              config_manager: ConfigManager) -> None:
+              config_manager: ConfigManager, cloud_status: Optional[str] = None) -> None:
     """Execute the universal file duplicate scan."""
     try:
         # Validate threshold range
@@ -149,7 +158,8 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
             directory=directory,
             recursive=recursive,
             threshold=threshold,
-            verbose=verbose
+            verbose=verbose,
+            cloud_status=cloud_status
         )
 
         # Output results (quiet mode shows basic results, verbose shows detailed)
@@ -215,7 +225,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
 
 def _perform_scan(scanner: FileScanner, detector: DuplicateDetector, 
                  reporter: ProgressReporter, directory: Path, recursive: bool,
-                 threshold: float, verbose: bool) -> ScanResult:
+                 threshold: float, verbose: bool, cloud_status: Optional[str] = None) -> ScanResult:
     """
     Perform the actual scan operation with progress reporting.
     

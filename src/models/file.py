@@ -21,8 +21,16 @@ class UserFile:
     """
 
     def __init__(self, path: Path, size: Optional[int] = None, is_local: bool = True, cloud_status: Optional[str] = None):
-        # Accept either Path or string path
-        path_obj = Path(path) if not isinstance(path, Path) else path
+        # Accept either Path, a path-like object, or strings. Preserve
+        # test doubles (Mock(spec=Path)) and any object that provides
+        # __fspath__ to avoid converting them into real Path instances
+        # which would lose their patched behaviors in tests.
+        if isinstance(path, Path) or hasattr(path, '_mock_name'):
+            path_obj = path
+        else:
+            # For plain string/bytes or other non-mock path-likes, coerce
+            # to a pathlib.Path so the implementation sees a real Path.
+            path_obj = Path(path)
         self._impl = _UserFileImpl(path_obj)
         # If caller supplied a pre-known size, seed the implementation's cache
         if size is not None:

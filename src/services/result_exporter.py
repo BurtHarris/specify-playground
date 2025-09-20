@@ -9,6 +9,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any
 import errno
+import json
 
 from ..models.scan_result import ScanResult
 
@@ -103,3 +104,27 @@ class ResultExporter:
             return f"{int(size)} {units[unit_index]}"
         else:
             return f"{size:.1f} {units[unit_index]}"
+
+    def export_json(self, result: ScanResult, output_path: Path) -> None:
+        """Export scan results to JSON format (API-compatible with YAML layout).
+
+        This method mirrors the YAML export structure but emits JSON. Tests and
+        consumers expect a stable JSON schema that includes cloud status fields.
+        """
+        # Prefer the ScanResult.to_dict() canonical representation where available
+        try:
+            data = result.to_dict()
+        except Exception:
+            # Fall back to preparing a similar structure as YAML exporter
+            data = self._prepare_yaml_export_data(result)
+
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            if e.errno == 28:  # ENOSPC
+                raise DiskSpaceError(f"Insufficient disk space to write {output_path}") from e
+            elif e.errno == 13:  # EACCES
+                raise PermissionError(f"Cannot write to {output_path}: Permission denied") from e
+            else:
+                raise

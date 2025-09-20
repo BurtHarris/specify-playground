@@ -9,9 +9,11 @@ from .file_scanner import FileScanner, DirectoryNotFoundError
 from .duplicate_detector import DuplicateDetector
 from .progress_reporter import ProgressReporter
 from .result_exporter import ResultExporter, DiskSpaceError
+from .video_file_scanner import VideoFileScanner
 
 __all__ = [
-    'UserFileScanner',
+    'FileScanner',
+    'VideoFileScanner',
     'DuplicateDetector',
     'ProgressReporter',
     'ResultExporter',
