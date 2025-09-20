@@ -79,16 +79,10 @@ def main():
     with open(scan_file, 'r', encoding='utf-8') as f:
         scan_data = yaml.safe_load(f)
     
-    deletion_commands = []
+    deletion_paths = []
     total_space_to_free = 0
     total_files_to_delete = 0
     files_already_deleted = 0
-    
-    print("# PowerShell script to delete safe numbered duplicates")
-    print("# Generated from video duplicate scan results")
-    print("# These are browser download duplicates with (1), (2), etc. suffixes")
-    print("# Only includes files that still exist")
-    print("")
     
     for group in scan_data['duplicate_groups']:
         files_to_delete = get_files_to_delete(group)
@@ -112,20 +106,36 @@ def main():
                 total_space_to_free += group_space_freed
                 total_files_to_delete += len(existing_files_to_delete)
                 
-                print(f"# Group: {len(existing_files_to_delete)} files, {group_space_freed / 1024 / 1024:.1f} MB to free")
-                
-                for file_path in existing_files_to_delete:
-                    # Escape quotes in PowerShell
-                    escaped_path = file_path.replace('"', '""')
-                    print(f'Remove-Item "{escaped_path}" -Verbose')
-                
-                print("")
+                # Collect paths to emit into a portable Python deletion script
+                deletion_paths.extend(existing_files_to_delete)
     
-    print(f"# Summary:")
-    print(f"# Total files to delete: {total_files_to_delete}")
-    print(f"# Total space to free: {total_space_to_free / 1024 / 1024 / 1024:.2f} GB")
-    if files_already_deleted > 0:
-        print(f"# Files already deleted: {files_already_deleted}")
+    # Emit a cross-platform Python deletion script if there are paths
+    if deletion_paths:
+        script_name = "deletions_from_scan.py"
+        with open(script_name, 'w', encoding='utf-8') as out:
+            out.write("#!/usr/bin/env python3\n")
+            out.write("from pathlib import Path\n\n")
+            out.write("FILES = [\n")
+            for p in deletion_paths:
+                out.write(f"    r'''{p}''',\n")
+            out.write("]\n\n")
+            out.write("def main():\n")
+            out.write("    for p in FILES:\n")
+            out.write("        try:\n")
+            out.write("            Path(p).unlink()\n")
+            out.write("            print('Deleted', p)\n")
+            out.write("        except Exception as e:\n")
+            out.write("            print('Failed to delete', p, '->', e)\n\n")
+            out.write("if __name__ == '__main__':\n")
+            out.write("    main()\n")
+
+        print(f"Wrote deletion script: {script_name}")
+        print(f"Total files to delete: {total_files_to_delete}")
+        print(f"Total space to free: {total_space_to_free / 1024 / 1024 / 1024:.2f} GB")
+        if files_already_deleted > 0:
+            print(f"Files already deleted: {files_already_deleted}")
+    else:
+        print("No deletions necessary.")
 
 if __name__ == "__main__":
     main()
