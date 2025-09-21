@@ -13,178 +13,178 @@ from typing import Dict, List, Optional, Set
 
 class ScanMetadata:
     """Contains metadata about a video duplicate scanning operation."""
-    
+
     def __init__(self, scan_paths: List[Path], recursive: bool = True):
         """
         Initialize scan metadata.
-        
+
         Args:
             scan_paths: List of paths that were scanned
             recursive: Whether scanning was recursive
         """
         self.scan_paths = [Path(p).resolve() for p in scan_paths]
         self.recursive = recursive
-        
+
         # Timing information
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
-        
+
         # Statistics
         self.total_files_found = 0
         self.total_files_processed = 0
         self.total_files_skipped = 0
         self.total_files_error = 0
-        
+
         # Size information
         self.total_size_scanned = 0
         self.total_size_duplicates = 0
         self.total_size_wasted = 0
-        
+
         # Hash computation statistics
         self.files_hashed = 0
         self.hash_computation_time = timedelta()
-        
+
         # Error tracking
         self.errors: List[Dict[str, str]] = []
         self.skipped_files: List[Dict[str, str]] = []
-        
+
         # Performance metrics
         self.directories_scanned = 0
         self.duplicate_groups_found = 0
         self.potential_match_groups_found = 0
-        
-        # Configuration
-        self.supported_extensions: Set[str] = {'.mp4', '.mkv', '.mov'}
+
+        # Configuration - by default no restriction on extensions (accept all)
+        self.supported_extensions: Set[str] = set()
         self.similarity_threshold = 0.8
         self.hash_algorithm = 'blake2b'
-    
+
     def start_scan(self) -> None:
         """Mark the start of the scanning process."""
         self.start_time = datetime.now()
-    
+
     def end_scan(self) -> None:
         """Mark the end of the scanning process."""
         self.end_time = datetime.now()
-    
+
     @property
     def duration(self) -> Optional[timedelta]:
         """
         Total duration of the scan.
-        
+
         Returns:
             Duration as timedelta if scan completed, None if still running or not started
         """
         if self.start_time is None:
             return None
-        
+
         end_time = self.end_time or datetime.now()
         return end_time - self.start_time
-    
+
     @property
     def duration_seconds(self) -> Optional[float]:
         """
         Total duration in seconds.
-        
+
         Returns:
             Duration in seconds, None if not available
         """
         duration = self.duration
         return duration.total_seconds() if duration else None
-    
+
     @property
     def is_running(self) -> bool:
         """True if scan is currently running (started but not ended)."""
         return self.start_time is not None and self.end_time is None
-    
+
     @property
     def is_completed(self) -> bool:
         """True if scan has completed (both start and end times set)."""
         return self.start_time is not None and self.end_time is not None
-    
+
     @property
     def files_per_second(self) -> Optional[float]:
         """
         Processing rate in files per second.
-        
+
         Returns:
             Files per second, None if scan not completed or no duration
         """
         duration_sec = self.duration_seconds
         if duration_sec is None or duration_sec == 0:
             return None
-        
+
         return self.total_files_processed / duration_sec
-    
+
     @property
     def bytes_per_second(self) -> Optional[float]:
         """
         Processing rate in bytes per second.
-        
+
         Returns:
             Bytes per second, None if scan not completed or no duration
         """
         duration_sec = self.duration_seconds
         if duration_sec is None or duration_sec == 0:
             return None
-        
+
         return self.total_size_scanned / duration_sec
-    
+
     @property
     def average_hash_time(self) -> Optional[float]:
         """
         Average time to compute hash per file in seconds.
-        
+
         Returns:
             Average hash computation time per file, None if no files hashed
         """
         if self.files_hashed == 0:
             return None
-        
+
         return self.hash_computation_time.total_seconds() / self.files_hashed
-    
+
     @property
     def error_rate(self) -> float:
         """
         Percentage of files that encountered errors.
-        
+
         Returns:
             Error rate as percentage (0.0-100.0)
         """
         if self.total_files_found == 0:
             return 0.0
-        
+
         return (self.total_files_error / self.total_files_found) * 100.0
-    
+
     @property
     def processing_rate(self) -> float:
         """
         Percentage of files successfully processed.
-        
+
         Returns:
             Processing rate as percentage (0.0-100.0)
         """
         if self.total_files_found == 0:
             return 0.0
-        
+
         return (self.total_files_processed / self.total_files_found) * 100.0
-    
+
     @property
     def space_savings_potential(self) -> float:
         """
         Potential space savings as percentage of total scanned size.
-        
+
         Returns:
             Space savings percentage (0.0-100.0)
         """
         if self.total_size_scanned == 0:
             return 0.0
-        
+
         return (self.total_size_wasted / self.total_size_scanned) * 100.0
-    
+
     def add_error(self, file_path: Path, error_message: str, error_type: str = "unknown") -> None:
         """
         Record an error encountered during scanning.
-        
+
         Args:
             file_path: Path to file that caused error
             error_message: Description of the error
@@ -197,11 +197,11 @@ class ScanMetadata:
             'timestamp': datetime.now().isoformat()
         })
         self.total_files_error += 1
-    
+
     def add_skipped_file(self, file_path: Path, reason: str) -> None:
         """
         Record a file that was skipped during scanning.
-        
+
         Args:
             file_path: Path to file that was skipped
             reason: Reason why file was skipped
@@ -212,42 +212,42 @@ class ScanMetadata:
             'timestamp': datetime.now().isoformat()
         })
         self.total_files_skipped += 1
-    
+
     def increment_processed(self, file_size: int = 0) -> None:
         """
         Increment processed file count and size.
-        
+
         Args:
             file_size: Size of the processed file in bytes
         """
         self.total_files_processed += 1
         self.total_size_scanned += file_size
-    
+
     def increment_hashed(self, hash_time: timedelta) -> None:
         """
         Increment hashed file count and total hash computation time.
-        
+
         Args:
             hash_time: Time taken to compute the hash
         """
         self.files_hashed += 1
         self.hash_computation_time += hash_time
-    
+
     def update_duplicate_stats(self, duplicate_size: int, wasted_size: int) -> None:
         """
         Update duplicate-related statistics.
-        
+
         Args:
             duplicate_size: Total size of duplicate files
             wasted_size: Size of wasted space (duplicates minus one copy)
         """
         self.total_size_duplicates += duplicate_size
         self.total_size_wasted += wasted_size
-    
+
     def get_summary_stats(self) -> Dict[str, any]:
         """
         Get a summary of key statistics.
-        
+
         Returns:
             Dictionary with summary statistics
         """
@@ -267,11 +267,11 @@ class ScanMetadata:
             'files_per_second': round(self.files_per_second or 0, 2),
             'mb_per_second': round((self.bytes_per_second or 0) / (1024 * 1024), 2)
         }
-    
+
     def get_performance_stats(self) -> Dict[str, any]:
         """
         Get detailed performance statistics.
-        
+
         Returns:
             Dictionary with performance metrics
         """
@@ -287,17 +287,17 @@ class ScanMetadata:
                 if self.duration_seconds else 0
             )
         }
-    
+
     def __str__(self) -> str:
         """String representation with key statistics."""
         status = "running" if self.is_running else "completed" if self.is_completed else "not started"
-        
+
         return (
             f"ScanMetadata(status={status}, "
             f"files_processed={self.total_files_processed}, "
             f"duplicates_found={self.duplicate_groups_found})"
         )
-    
+
     def __repr__(self) -> str:
         """Detailed string representation for debugging."""
         return (
@@ -307,11 +307,11 @@ class ScanMetadata:
             f"files_error={self.total_files_error}, "
             f"duration={self.duration})"
         )
-    
+
     def to_dict(self) -> dict:
         """
         Convert to dictionary representation for JSON/YAML export.
-        
+
         Returns:
             Dictionary with all metadata
         """

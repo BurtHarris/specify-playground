@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-PotentialMatchGroup model for Video Duplicate Scanner CLI.
+PotentialMatchGroup model for the duplicate scanner CLI.
 
-Represents a group of video files that have similar names but different content.
-These may be the same video in different formats/qualities.
+Represents a group of files that have similar names but different content.
+These may be the same item in different formats or with different extensions.
 """
 
 from typing import Dict, Iterator, List, Optional, Set, Tuple

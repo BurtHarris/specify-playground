@@ -85,7 +85,7 @@ def check_python_version():
 check_python_version()
 
 # Now safe to import our modules
-from ..services.file_scanner import FileScanner
+from ..services.file_scanner import FileScanner, DirectoryNotFoundError
 from ..services.duplicate_detector import DuplicateDetector
 from ..services.progress_reporter import ProgressReporter
 from ..services.result_exporter import ResultExporter, DiskSpaceError
@@ -170,7 +170,7 @@ def main(ctx: click.Context):
 @click.option('--db-path', type=click.Path(dir_okay=False, writable=False, path_type=Path), default=None,
               help='Path to SQLite DB for caching hashes (default: in-memory)')
 @click.option('--patterns', type=str, default=None,
-              help='Comma-separated glob patterns to include (e.g. "*.mp4,*.mkv")')
+              help='Comma-separated glob patterns to include (e.g. "*.txt,*.jpg")')
 @click.option('--recursive/--no-recursive', default=None, help='Scan subdirectories recursively (default: from config)')
 @click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
 @click.option('--threshold', type=float, default=None, help='Fuzzy matching threshold (0.0-1.0) (default: from config)')
@@ -371,7 +371,7 @@ def _perform_scan(scanner: FileScanner, detector: DuplicateDetector,
         if verbose:
             click.echo("Detecting duplicates...")
         
-        duplicate_groups = detector.find_duplicates(files, reporter, verbose)
+        duplicate_groups = detector.find_duplicates(files, reporter, verbose, metadata=metadata)
         
         # Update progress
         reporter.update_progress(len(files), "Finding potential matches")

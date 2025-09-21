@@ -1,23 +1,35 @@
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Iterator
 import fnmatch
 import logging
 import os
 
 from src.services.file_hasher import stream_hash
 from src.services.file_database import get_database
+from src.models.file import UserFile
 
 
 logger = logging.getLogger(__name__)
 
 
-class FileScanner:
-    """Scans directories for files, computes hashes (streaming) and uses a
-    database-backed cache for previously computed file hashes.
+class DirectoryNotFoundError(Exception):
+    """Raised when a provided directory path cannot be found or accessed."""
+    pass
 
-    This is a lightweight, prototypical implementation intended for tests and
-    early integration. It intentionally keeps the public surface minimal.
+
+class FileScanner:
+    """Scans directories for files and provides two interfaces:
+
+    - Legacy directory-based API: scan_directory/scan/scan_recursive that yield
+      `UserFile` instances (backwards compatible with existing code/tests).
+    - New path-iterable API: calling `scan()` with an iterable of paths
+      returns a list of dict metadata (used by the new prototype tests).
     """
+
+    # By default, only accept common video extensions for the historical
+    # VideoFileScanner behavior used by contract tests. Tests can override
+    # this by setting SUPPORTED_EXTENSIONS to a different set.
+    SUPPORTED_EXTENSIONS = {'.mp4', '.mkv', '.mov'}  # type: Optional[set]
 
     def __init__(self, db_path: Optional[Path] = None, patterns: Optional[List[str]] = None, recursive: bool = True, chunk_size: int = 1024 * 1024):
         self.db = get_database(db_path)
@@ -25,86 +37,101 @@ class FileScanner:
         self.recursive = recursive
         self.chunk_size = chunk_size
 
-    # Keep a small compatibility surface expected by existing tests
-    VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.mov'}
+    # --- compatibility helpers (legacy API) ---------------------------------
+    def scan_directory(self, directory: Path, recursive: bool = False, metadata=None, progress_reporter=None, cloud_status: str = 'local') -> Iterator[UserFile]:
+        """Legacy API: yield UserFile objects for files under `directory`.
 
-    def validate_file(self, file_path: Path) -> bool:
-        """Validate a file for being a non-empty local video file.
-
-        Returns False for missing files, unreadable files or unsupported extensions.
+        This preserves behavior expected by older tests and the rest of the
+        codebase which treat `FileScanner` as a generator of `UserFile`.
         """
+        directory = Path(directory)
         try:
-            if hasattr(file_path, 'is_file') and hasattr(file_path, 'stat') and hasattr(file_path, 'suffix'):
-                path = file_path
-            else:
-                path = Path(file_path)
+            if not directory.exists() or not directory.is_dir():
+                raise DirectoryNotFoundError(f"Directory not found: {directory}")
         except Exception:
-            try:
-                path = Path(str(file_path))
-            except Exception:
-                return False
+            raise DirectoryNotFoundError(f"Directory not found: {directory}")
 
-        try:
-            if not path.exists() or not path.is_file():
-                return False
-        except Exception:
-            return False
-
-        try:
-            if path.suffix.lower() not in self.VIDEO_EXTENSIONS:
-                return False
-        except Exception:
-            return False
-
-        try:
-            if not os.access(path, os.R_OK):
-                return False
-        except Exception:
-            return False
-
-        try:
-            stat_result = path.stat()
-            size = int(getattr(stat_result, 'st_size', 0))
-        except Exception:
-            return False
-
-        if size <= 0:
-            return False
-
-        return True
-
-    def _should_include_file(self, user_file, cloud_status: str) -> bool:
-        """Simple cloud-status based filter used by older tests."""
-        if cloud_status == 'all':
-            return True
-        elif cloud_status == 'local':
-            return getattr(user_file, 'is_local', False)
-        elif cloud_status == 'cloud-only':
-            return getattr(user_file, 'is_cloud_only', False)
+        # Build an iterator of candidate file entries according to recursion
+        if recursive:
+            candidates = list(directory.rglob('*'))
         else:
-            return True
+            try:
+                candidates = list(directory.iterdir())
+            except PermissionError:
+                raise
+            except Exception:
+                candidates = []
 
-    def _match_patterns(self, name: str) -> bool:
-        for pat in self.patterns:
-            if fnmatch.fnmatch(name, pat):
-                return True
-        return False
+        # Pre-filter candidates to count total items for progress reporting
+        files = [entry for entry in candidates if getattr(entry, 'is_file', lambda: False)() and self._match_patterns(entry.name)]
 
-    def scan(self, paths: Iterable[Path]) -> List[dict]:
-        """Scan the given paths and return a list of file metadata dicts with keys: path, size, mtime, hash."""
+        # If a progress_reporter was provided, initialize it with total files
+        try:
+            total_files = len(files)
+            if progress_reporter and hasattr(progress_reporter, 'start_progress'):
+                try:
+                    progress_reporter.start_progress(total_files, 'Scanning')
+                except Exception:
+                    # Non-fatal if progress reporter fails
+                    pass
+        except Exception:
+            total_files = 0
+
+        for idx, entry in enumerate(files, start=1):
+            try:
+                # Validate via existing logic (size, readability, optional extension filter)
+                if not self._validate_path_like(entry):
+                    # Optionally inform progress reporter about skipped items
+                    if progress_reporter and hasattr(progress_reporter, 'update_progress'):
+                        try:
+                            progress_reporter.update_progress(idx, str(entry.name))
+                        except Exception:
+                            pass
+                    continue
+
+                # Emit progress before yielding
+                if progress_reporter and hasattr(progress_reporter, 'update_progress'):
+                    try:
+                        progress_reporter.update_progress(idx, str(entry.name))
+                    except Exception:
+                        pass
+
+                yield UserFile(entry)
+            except PermissionError:
+                raise
+            except Exception:
+                # Skip entries that cause unexpected errors
+                continue
+        # Finish progress reporting if present
+        if progress_reporter and hasattr(progress_reporter, 'finish_progress'):
+            try:
+                progress_reporter.finish_progress()
+            except Exception:
+                pass
+
+    def scan_recursive(self, directory: Path, metadata=None, progress_reporter=None, cloud_status: str = 'local') -> Iterator[UserFile]:
+        yield from self.scan_directory(directory, recursive=True, metadata=metadata, progress_reporter=progress_reporter, cloud_status=cloud_status)
+
+    def scan(self, paths_or_directory) -> List[dict] or Iterator[UserFile]:
+        """Dual-purpose entry point.
+
+        If `paths_or_directory` is a Path or string, behave as legacy API and
+        return an iterator of `UserFile` objects for that directory. If it is
+        an iterable of Path-like objects, compute and return a list of dicts
+        with metadata (path, size, mtime, hash).
+        """
+        # Directory-like usage -> legacy generator
+        if isinstance(paths_or_directory, (str, Path)):
+            return self.scan_directory(Path(paths_or_directory), recursive=self.recursive)
+
+        # Otherwise assume iterable of paths -> new metadata list
         results = []
-        for p in paths:
+        for p in paths_or_directory:
             p = Path(p)
             if not p.exists():
                 logger.debug("Path does not exist, skipping: %s", p)
                 continue
-            if p.is_file():
-                files = [p]
-            else:
-                if self.recursive:
-                    files = [f for f in p.rglob("*") if f.is_file()]
-                else:
-                    files = [f for f in p.iterdir() if f.is_file()]
+            files = [p] if p.is_file() else ([f for f in p.rglob("*") if f.is_file()] if self.recursive else [f for f in p.iterdir() if f.is_file()])
 
             for f in files:
                 if not self._match_patterns(f.name):
@@ -122,7 +149,6 @@ class FileScanner:
                 try:
                     cached = self.db.get_cached_hash(f, size, mtime)
                 except Exception:
-                    # On any DB error, fall back to no-cache behaviour
                     cached = None
 
                 if cached:
@@ -147,22 +173,67 @@ class FileScanner:
 
         return results
 
-    def get_supported_extensions(self):
-        """
-        Get the set of supported video file extensions.
+    # --- small compatibility helpers --------------------------------------
+    def _validate_path_like(self, file_path: Path) -> bool:
+        try:
+            if not file_path.exists() or not file_path.is_file():
+                return False
+        except Exception:
+            return False
+        try:
+            # If a SUPPORTED_EXTENSIONS set is configured, enforce it; otherwise
+            # accept any extension.
+            if self.SUPPORTED_EXTENSIONS:
+                if file_path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
+                    return False
+        except Exception:
+            return False
+        try:
+            if not os.access(file_path, os.R_OK):
+                return False
+        except Exception:
+            return False
+        try:
+            stat_result = file_path.stat()
+            size = int(getattr(stat_result, 'st_size', 0))
+        except Exception:
+            return False
+        if size <= 0:
+            return False
+        return True
 
-        Returns: Set of supported extensions (e.g., {'.mp4', '.mkv', '.mov'})
+    def validate_file(self, file_path) -> bool:
+        """Public compatibility method used by older tests.
+
+        Accepts a Path or path-like and returns True when the file exists,
+        is readable, has a supported extension, and has positive size.
         """
-        return self.VIDEO_EXTENSIONS.copy()
+        try:
+            p = file_path if isinstance(file_path, Path) else Path(file_path)
+        except Exception:
+            return False
+        return self._validate_path_like(p)
+
+    def _should_include_file(self, user_file, cloud_status: str) -> bool:
+        if cloud_status == 'all':
+            return True
+        elif cloud_status == 'local':
+            return getattr(user_file, 'is_local', False)
+        elif cloud_status == 'cloud-only':
+            return getattr(user_file, 'is_cloud_only', False)
+        else:
+            return True
+
+    def _match_patterns(self, name: str) -> bool:
+        for pat in self.patterns:
+            if fnmatch.fnmatch(name, pat):
+                return True
+        return False
+
+    def get_supported_extensions(self):
+        return set(self.SUPPORTED_EXTENSIONS) if self.SUPPORTED_EXTENSIONS else set()
 
     def is_supported_extension(self, extension: str) -> bool:
-        """
-        Check if a file extension is supported.
-
-        Args:
-            extension: File extension to check (e.g., '.mp4')
-
-        Returns:
-            True if extension is supported
-        """
-        return extension.lower() in self.VIDEO_EXTENSIONS
+        if not self.SUPPORTED_EXTENSIONS:
+            return True
+        return extension.lower() in self.SUPPORTED_EXTENSIONS
