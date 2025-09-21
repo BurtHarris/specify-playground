@@ -5,7 +5,7 @@ Contains service layer classes for video file scanning,
 duplicate detection, and result processing.
 """
 
-from .file_scanner import FileScanner, DirectoryNotFoundError
+from .file_scanner import FileScanner
 from .duplicate_detector import DuplicateDetector
 from .progress_reporter import ProgressReporter
 from .result_exporter import ResultExporter, DiskSpaceError
@@ -17,6 +17,5 @@ __all__ = [
     'DuplicateDetector',
     'ProgressReporter',
     'ResultExporter',
-    'DirectoryNotFoundError',
     'DiskSpaceError'
 ]

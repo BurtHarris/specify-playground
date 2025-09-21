@@ -9,9 +9,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional, Tuple
 
-
-class FileDatabaseError(Exception):
-    pass
+from src.lib.exceptions import DatabaseCorruptError, DatabaseNotConfiguredError
 
 
 class FileDatabase:
@@ -21,10 +19,15 @@ class FileDatabase:
 
     def connect(self):
         if self.db_path is None:
-            raise FileDatabaseError("Database path not set")
-        self._conn = sqlite3.connect(str(self.db_path))
-        self._conn.row_factory = sqlite3.Row
-        return self._conn
+            raise DatabaseNotConfiguredError("Database path not set")
+        try:
+            self._conn = sqlite3.connect(str(self.db_path))
+            self._conn.row_factory = sqlite3.Row
+            return self._conn
+        except sqlite3.DatabaseError as e:
+            # Surface a clear error that higher-level code can catch and
+            # fall back to an in-memory database if desired.
+            raise DatabaseCorruptError(f"Failed to open database: {e}")
 
     def init_schema(self):
         """Initialize the database schema from bundled SQL."""
@@ -64,3 +67,48 @@ class FileDatabase:
             (str(path), int(size), float(mtime), hash_value),
         )
         self._conn.commit()
+
+
+class InMemoryFileDatabase(FileDatabase):
+    """Simple in-memory fallback implementing the same interface.
+
+    Stores entries in a dict keyed by path. Intended for use when the
+    on-disk SQLite DB is unavailable or corrupted.
+    """
+
+    def __init__(self):
+        super().__init__(db_path=None)
+        self._store = {}
+
+    def connect(self):
+        # No sqlite connection required for in-memory store
+        self._conn = None
+        return None
+
+    def init_schema(self):
+        # No-op for in-memory store
+        return
+
+    def get_cached_hash(self, path: Path, size: int, mtime: float) -> Optional[str]:
+        rec = self._store.get(str(path))
+        if not rec:
+            return None
+        r_size, r_mtime, r_hash = rec
+        if r_size == int(size) and float(r_mtime) == float(mtime):
+            return r_hash
+        return None
+
+    def set_cached_hash(self, path: Path, size: int, mtime: float, hash_value: str) -> None:
+        self._store[str(path)] = (int(size), float(mtime), hash_value)
+
+
+def get_database(db_path: Optional[Path] = None):
+    """Factory that attempts to open an on-disk DB and falls back to in-memory."""
+    if db_path is None:
+        return InMemoryFileDatabase()
+    try:
+        db = FileDatabase(db_path=db_path)
+        db.connect()
+        return db
+    except DatabaseCorruptError:
+        return InMemoryFileDatabase()
