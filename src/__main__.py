@@ -7,6 +7,9 @@ integration tests and shell users: when the module is invoked as
 existing directory path, insert the explicit 'scan' subcommand so Click
 dispatches correctly. This insertion is conservative and only happens
 when an actual existing directory is found among the positional args.
+
+This module enforces the runtime Python version requirement (3.12+)
+so early failures are clear when the CLI is executed in older runtimes.
 """
 
 import sys
@@ -14,6 +17,15 @@ import os
 from pathlib import Path
 
 from src.cli.main import main
+
+
+# Enforce Python runtime version requirement early (T001)
+if sys.version_info < (3, 12):
+    sys.stderr.write(
+        "specify-playground: Python 3.12 or newer is required. "
+        f"Current version: {sys.version.split()[0]}\n"
+    )
+    sys.exit(2)
 
 
 def _maybe_insert_scan_subcommand():

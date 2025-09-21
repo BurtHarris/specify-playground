@@ -80,37 +80,17 @@ specs/[###-feature]/
 ```
 # Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── models/      # Data models and domain objects (FileInfo, DuplicateGroup, ScanMetadata)
+├── services/    # Core services and business logic (scanners, hashers, database access)
+├── cli/         # Click-based command-line entrypoints and argument parsing
+└── lib/         # Shared utilities, helpers, and small cross-cutting modules
 
 tests/
-├── contract/
-├── integration/
-└── unit/
+├── contract/    # Contract/interface tests ensuring CLI/exports match the spec
+├── integration/ # End-to-end tests (database + filesystem + CLI flows)
+└── unit/        # Fast unit tests for individual modules and functions
 
-# Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure]
+<!-- Alternative project structures removed: this plan targets a single-project layout only. -->
 ```
 
 **Structure Decision**: Option 1 (single project structure) - Refactoring existing CLI application, no web/mobile components detected
