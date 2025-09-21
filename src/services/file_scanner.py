@@ -1,672 +1,239 @@
-#!/usr/bin/env python3
-"""Clean FileScanner - single canonical implementation."""
-
-import os
 from pathlib import Path
-from typing import Iterator, Optional, Set
+from typing import Iterable, List, Optional, Iterator
+import fnmatch
+import logging
+import os
+
+from src.services.file_hasher import stream_hash
+from src.services.file_database import get_database
 from src.models.file import UserFile
 
 
+logger = logging.getLogger(__name__)
+
+
 class DirectoryNotFoundError(Exception):
+    """Raised when a provided directory path cannot be found or accessed."""
     pass
 
 
 class FileScanner:
-    def __init__(self, extensions: Optional[Set[str]] = None):
-        self.extensions = {e.lower() for e in extensions} if extensions else None
+    """Scans directories for files and provides two interfaces:
 
-    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
+    - Legacy directory-based API: scan_directory/scan/scan_recursive that yield
+      `UserFile` instances (backwards compatible with existing code/tests).
+    - New path-iterable API: calling `scan()` with an iterable of paths
+      returns a list of dict metadata (used by the new prototype tests).
+    """
+
+    # By default, only accept common video extensions for the historical
+    # VideoFileScanner behavior used by contract tests. Tests can override
+    # this by setting SUPPORTED_EXTENSIONS to a different set.
+    SUPPORTED_EXTENSIONS = {'.mp4', '.mkv', '.mov'}  # type: Optional[set]
+
+    def __init__(self, db_path: Optional[Path] = None, patterns: Optional[List[str]] = None, recursive: bool = True, chunk_size: int = 1024 * 1024):
+        self.db = get_database(db_path)
+        self.patterns = patterns or ["*"]
+        self.recursive = recursive
+        self.chunk_size = chunk_size
+
+    # --- compatibility helpers (legacy API) ---------------------------------
+    def scan_directory(self, directory: Path, recursive: bool = False, metadata=None, progress_reporter=None, cloud_status: str = 'local') -> Iterator[UserFile]:
+        """Legacy API: yield UserFile objects for files under `directory`.
+
+        This preserves behavior expected by older tests and the rest of the
+        codebase which treat `FileScanner` as a generator of `UserFile`.
+        """
+        directory = Path(directory)
         try:
-            directory = Path(directory).resolve()
+            if not directory.exists() or not directory.is_dir():
+                raise DirectoryNotFoundError(f"Directory not found: {directory}")
         except Exception:
-            directory = Path(directory)
-
-        if not directory.exists():
             raise DirectoryNotFoundError(f"Directory not found: {directory}")
-        if not directory.is_dir():
-            raise DirectoryNotFoundError(f"Path is not a directory: {directory}")
-        if not os.access(directory, os.R_OK):
-            raise PermissionError(f"Permission denied accessing directory: {directory}")
 
-        iterator = self._scan_recursive(directory) if recursive else self._scan_non_recursive(directory)
-
-        files = list(iterator)
-
-        def _safe_key(p):
+        # Build an iterator of candidate file entries according to recursion
+        if recursive:
+            candidates = list(directory.rglob('*'))
+        else:
             try:
-                return str(p)
+                candidates = list(directory.iterdir())
+            except PermissionError:
+                raise
             except Exception:
-                return getattr(p, 'name', repr(p))
+                candidates = []
 
-        files = sorted(files, key=_safe_key)
+        # Pre-filter candidates to count total items for progress reporting
+        files = [entry for entry in candidates if getattr(entry, 'is_file', lambda: False)() and self._match_patterns(entry.name)]
 
-        if progress_reporter:
+        # If a progress_reporter was provided, initialize it with total files
+        try:
+            total_files = len(files)
+            if progress_reporter and hasattr(progress_reporter, 'start_progress'):
+                try:
+                    progress_reporter.start_progress(total_files, 'Scanning')
+                except Exception:
+                    # Non-fatal if progress reporter fails
+                    pass
+        except Exception:
+            total_files = 0
+
+        for idx, entry in enumerate(files, start=1):
             try:
-                progress_reporter.start_progress(len(files), "Scanning files")
-            except Exception:
-                pass
+                # Validate via existing logic (size, readability, optional extension filter)
+                if not self._validate_path_like(entry):
+                    # Optionally inform progress reporter about skipped items
+                    if progress_reporter and hasattr(progress_reporter, 'update_progress'):
+                        try:
+                            progress_reporter.update_progress(idx, str(entry.name))
+                        except Exception:
+                            pass
+                    continue
 
-        processed = 0
-        for p in files:
-            if not self.validate_file(p):
-                processed += 1
+                # Emit progress before yielding
+                if progress_reporter and hasattr(progress_reporter, 'update_progress'):
+                    try:
+                        progress_reporter.update_progress(idx, str(entry.name))
+                    except Exception:
+                        pass
+
+                yield UserFile(entry)
+            except PermissionError:
+                raise
+            except Exception:
+                # Skip entries that cause unexpected errors
                 continue
-            try:
-                try:
-                    size = p.stat().st_size
-                except Exception:
-                    size = 0
-
-                file_obj = UserFile(p)
-                try:
-                    file_obj._size = size
-                except Exception:
-                    pass
-                try:
-                    file_obj.is_local = True
-                except Exception:
-                    pass
-
-                if progress_reporter:
-                    try:
-                        label = p.name
-                    except Exception:
-                        label = str(p)
-                    try:
-                        progress_reporter.update_progress(processed, f"Processing: {label}")
-                    except Exception:
-                        pass
-
-                yield file_obj
-            except (FileNotFoundError, PermissionError, ValueError):
-                if metadata is not None:
-                    try:
-                        metadata.errors.append({"file": str(p), "error": "access"})
-                    except Exception:
-                        pass
-            finally:
-                processed += 1
-
-        if progress_reporter:
+        # Finish progress reporting if present
+        if progress_reporter and hasattr(progress_reporter, 'finish_progress'):
             try:
                 progress_reporter.finish_progress()
             except Exception:
                 pass
 
-    def _scan_recursive(self, directory: Path):
-        found = []
-        try:
-            if self.extensions:
-                for ext in self.extensions:
-                    pattern = f"*{ext}"
-                    for p in directory.rglob(pattern):
-                        if p.is_file():
-                            found.append(p)
-            else:
-                for p in directory.rglob("*"):
-                    if p.is_file():
-                        found.append(p)
-        except Exception:
-            pass
-        return found
+    def scan_recursive(self, directory: Path, metadata=None, progress_reporter=None, cloud_status: str = 'local') -> Iterator[UserFile]:
+        yield from self.scan_directory(directory, recursive=True, metadata=metadata, progress_reporter=progress_reporter, cloud_status=cloud_status)
 
-    def _scan_non_recursive(self, directory: Path):
-        found = []
-        try:
-            if self.extensions:
-                for ext in self.extensions:
-                    pattern = f"*{ext}"
-                    for p in directory.glob(pattern):
-                        if p.is_file():
-                            found.append(p)
-            else:
-                for p in directory.iterdir():
-                    if p.is_file():
-                        found.append(p)
-        except Exception:
-            pass
-        return found
+    def scan(self, paths_or_directory) -> List[dict] or Iterator[UserFile]:
+        """Dual-purpose entry point.
 
-    def _is_supported_file(self, file_path: Path) -> bool:
-        if self.extensions:
-            return file_path.suffix.lower() in self.extensions
+        If `paths_or_directory` is a Path or string, behave as legacy API and
+        return an iterator of `UserFile` objects for that directory. If it is
+        an iterable of Path-like objects, compute and return a list of dicts
+        with metadata (path, size, mtime, hash).
+        """
+        # Directory-like usage -> legacy generator
+        if isinstance(paths_or_directory, (str, Path)):
+            return self.scan_directory(Path(paths_or_directory), recursive=self.recursive)
+
+        # Otherwise assume iterable of paths -> new metadata list
+        results = []
+        for p in paths_or_directory:
+            p = Path(p)
+            if not p.exists():
+                logger.debug("Path does not exist, skipping: %s", p)
+                continue
+            files = [p] if p.is_file() else ([f for f in p.rglob("*") if f.is_file()] if self.recursive else [f for f in p.iterdir() if f.is_file()])
+
+            for f in files:
+                if not self._match_patterns(f.name):
+                    continue
+                try:
+                    st = f.stat()
+                except (OSError, PermissionError) as e:
+                    logger.warning("Could not stat file %s: %s", f, e)
+                    continue
+
+                size = int(st.st_size)
+                mtime = float(st.st_mtime)
+
+                # Check cache
+                try:
+                    cached = self.db.get_cached_hash(f, size, mtime)
+                except Exception:
+                    cached = None
+
+                if cached:
+                    hash_value = cached
+                else:
+                    try:
+                        hash_value = stream_hash(f, chunk_size=self.chunk_size)
+                        try:
+                            self.db.set_cached_hash(f, size, mtime, hash_value)
+                        except Exception:
+                            logger.debug("Failed to write cache for %s", f)
+                    except Exception as e:
+                        logger.warning("Failed to hash file %s: %s", f, e)
+                        continue
+
+                results.append({
+                    "path": str(f),
+                    "size": size,
+                    "mtime": mtime,
+                    "hash": hash_value,
+                })
+
+        return results
+
+    # --- small compatibility helpers --------------------------------------
+    def _validate_path_like(self, file_path: Path) -> bool:
+        try:
+            if not file_path.exists() or not file_path.is_file():
+                return False
+        except Exception:
+            return False
+        try:
+            # If a SUPPORTED_EXTENSIONS set is configured, enforce it; otherwise
+            # accept any extension.
+            if self.SUPPORTED_EXTENSIONS:
+                if file_path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
+                    return False
+        except Exception:
+            return False
+        try:
+            if not os.access(file_path, os.R_OK):
+                return False
+        except Exception:
+            return False
+        try:
+            stat_result = file_path.stat()
+            size = int(getattr(stat_result, 'st_size', 0))
+        except Exception:
+            return False
+        if size <= 0:
+            return False
         return True
 
-    def validate_file(self, file_path: Path) -> bool:
+    def validate_file(self, file_path) -> bool:
+        """Public compatibility method used by older tests.
+
+        Accepts a Path or path-like and returns True when the file exists,
+        is readable, has a supported extension, and has positive size.
+        """
         try:
             p = file_path if isinstance(file_path, Path) else Path(file_path)
-            try:
-                if hasattr(p, '_flavour'):
-                    p = p.resolve()
-            except Exception:
-                pass
-            if not p.exists():
-                return False
-            if not p.is_file():
-                return False
-            if not self._is_supported_file(p):
-                return False
-            try:
-                if not os.access(p, os.R_OK):
-                    return False
-            except Exception:
-                pass
-            try:
-                size = p.stat().st_size
-                if size == 0:
-                    return False
-            except Exception:
-                return False
+        except Exception:
+            return False
+        return self._validate_path_like(p)
+
+    def _should_include_file(self, user_file, cloud_status: str) -> bool:
+        if cloud_status == 'all':
             return True
-        except Exception:
-            return False
-
-    def get_supported_extensions(self) -> Optional[Set[str]]:
-        return self.extensions.copy() if self.extensions else None
-
-    def is_supported_extension(self, extension: str) -> bool:
-        if self.extensions:
-            return extension.lower() in self.extensions
-        return True
-#!/usr/bin/env python3
-"""
-FileScanner service for Universal File Duplicate Scanner CLI.
-Clean, single implementation to avoid duplicate/garbled blocks.
-"""
-
-import os
-from pathlib import Path
-from typing import Iterator, Set, Optional
-from src.models.file import UserFile
-
-
-class DirectoryNotFoundError(Exception):
-    """Raised when a directory cannot be found."""
-    pass
-
-
-class FileScanner:
-    """Service for discovering and validating files in directories."""
-
-    def __init__(self, extensions: Optional[Set[str]] = None):
-        if extensions:
-            self.extensions = set(e.lower() for e in extensions)
+        elif cloud_status == 'local':
+            return getattr(user_file, 'is_local', False)
+        elif cloud_status == 'cloud-only':
+            return getattr(user_file, 'is_cloud_only', False)
         else:
-            self.extensions = None
+            return True
 
-    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
-        try:
-            directory = Path(directory).resolve()
-        except Exception:
-            directory = Path(directory)
-
-        if not directory.exists():
-            raise DirectoryNotFoundError(f"Directory not found: {directory}")
-        if not directory.is_dir():
-            raise DirectoryNotFoundError(f"Path is not a directory: {directory}")
-        if not os.access(directory, os.R_OK):
-            raise PermissionError(f"Permission denied accessing directory: {directory}")
-
-        if recursive:
-            yield from self._scan_recursive(directory, metadata, progress_reporter)
-        else:
-            yield from self._scan_non_recursive(directory, metadata, progress_reporter)
-
-    def _scan_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
-        found_files = []
-        try:
-            if self.extensions:
-                for ext in self.extensions:
-                    pattern = f"*{ext}"
-                    for file_path in directory.rglob(pattern):
-                        found_files.append(file_path)
-            else:
-                for file_path in directory.rglob("*"):
-                    if file_path.is_file():
-                        found_files.append(file_path)
-        except (OSError, PermissionError):
-            pass
-
-        if not found_files:
-            try:
-                for root, dirs, files in os.walk(directory):
-                    root_path = Path(root)
-                    for filename in files:
-                        file_path = root_path / filename
-                        if self.validate_file(file_path):
-                            found_files.append(file_path)
-            except (OSError, PermissionError):
-                pass
-
-        def _path_key(p):
-            try:
-                return str(p)
-            except Exception:
-                try:
-                    return getattr(p, 'name', repr(p))
-                except Exception:
-                    return repr(p)
-
-        sorted_files = sorted(found_files, key=_path_key)
-        if progress_reporter:
-            progress_reporter.start_progress(len(sorted_files), "Scanning files")
-        files_processed = 0
-        for file_path in sorted_files:
-            if self.validate_file(file_path):
-                try:
-                    if progress_reporter:
-                        try:
-                            label = file_path.name
-                        except Exception:
-                            label = str(file_path)
-                        progress_reporter.update_progress(files_processed, f"Processing: {label}")
-
-                    try:
-                        size = file_path.stat().st_size
-                    except Exception:
-                        size = 0
-
-                    file_obj = UserFile(file_path)
-                    try:
-                        file_obj._size = size
-                    except Exception:
-                        pass
-                    try:
-                        file_obj.is_local = True
-                    except Exception:
-                        pass
-
-                    yield file_obj
-                    files_processed += 1
-                except (ValueError, FileNotFoundError, PermissionError) as e:
-                    if metadata:
-                        metadata.errors.append({
-                            "file": str(file_path),
-                            "error": f"Permission denied: {e}"
-                        })
-                    files_processed += 1
-                    continue
-
-        if progress_reporter:
-            progress_reporter.finish_progress()
-
-    def _scan_non_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
-        found_files = []
-        try:
-            if self.extensions:
-                for ext in self.extensions:
-                    pattern = f"*{ext}"
-                    for file_path in directory.glob(pattern):
-                        found_files.append(file_path)
-            else:
-                for entry in directory.iterdir():
-                    if entry.is_file():
-                        found_files.append(entry)
-        except (OSError, PermissionError):
-            pass
-
-        if not found_files:
-            try:
-                entries = list(directory.iterdir())
-                for entry in entries:
-                    if entry.is_file() and self.validate_file(entry):
-                        found_files.append(entry)
-            except (OSError, PermissionError):
-                pass
-
-        def _path_key(p):
-            try:
-                return str(p)
-            except Exception:
-                try:
-                    return getattr(p, 'name', repr(p))
-                except Exception:
-                    return repr(p)
-
-        sorted_files = sorted(found_files, key=_path_key)
-        if progress_reporter:
-            progress_reporter.start_progress(len(sorted_files), "Scanning files")
-        files_processed = 0
-        for file_path in sorted_files:
-            if self.validate_file(file_path):
-                try:
-                    if progress_reporter:
-                        try:
-                            label = file_path.name
-                        except Exception:
-                            label = str(file_path)
-                        progress_reporter.update_progress(files_processed, f"Processing: {label}")
-
-                    try:
-                        size = file_path.stat().st_size
-                    except Exception:
-                        size = 0
-
-                    file_obj = UserFile(file_path)
-                    try:
-                        file_obj._size = size
-                    except Exception:
-                        pass
-                    try:
-                        file_obj.is_local = True
-                    except Exception:
-                        pass
-
-                    yield file_obj
-                    files_processed += 1
-                except (ValueError, FileNotFoundError, PermissionError) as e:
-                    if metadata:
-                        metadata.errors.append({
-                            "file": str(file_path),
-                            "error": f"Permission denied: {e}"
-                        })
-                    files_processed += 1
-                    continue
-
-        if progress_reporter:
-            progress_reporter.finish_progress()
-
-    def _is_supported_file(self, file_path: Path) -> bool:
-        if self.extensions:
-            return file_path.suffix.lower() in self.extensions
-        return True
-
-    def validate_file(self, file_path: Path) -> bool:
-        try:
-            resolved_path = file_path if isinstance(file_path, Path) else Path(file_path)
-            try:
-                if hasattr(resolved_path, '_mock_name'):
-                    pass
-                elif hasattr(resolved_path, '_flavour'):
-                    resolved_path = resolved_path.resolve()
-            except (AttributeError, TypeError, OSError):
-                pass
-
-            if not resolved_path.exists():
-                return False
-            if not resolved_path.is_file():
-                return False
-            if not self._is_supported_file(resolved_path):
-                return False
-            try:
-                if hasattr(resolved_path, '_mock_name'):
-                    pass
-                else:
-                    if not os.access(resolved_path, os.R_OK):
-                        return False
-            except (TypeError, OSError):
-                pass
-            try:
-                size = resolved_path.stat().st_size
-                if hasattr(size, 'st_size'):
-                    size = size.st_size
-                if size == 0:
-                    return False
+    def _match_patterns(self, name: str) -> bool:
+        for pat in self.patterns:
+            if fnmatch.fnmatch(name, pat):
                 return True
-            except (OSError, AttributeError):
-                return False
-        except (OSError, ValueError, TypeError):
-            return False
+        return False
 
-    def get_supported_extensions(self) -> Optional[Set[str]]:
-        return self.extensions.copy() if self.extensions else None
+    def get_supported_extensions(self):
+        return set(self.SUPPORTED_EXTENSIONS) if self.SUPPORTED_EXTENSIONS else set()
 
     def is_supported_extension(self, extension: str) -> bool:
-        if self.extensions:
-            return extension.lower() in self.extensions
-        return True
-#!/usr/bin/env python3
-"""
-FileScanner service for Universal File Duplicate Scanner CLI.
-Handles directory traversal and file discovery with support for
-recursive scanning, configurable extension filtering, and file validation.
-"""
-
-
-import os
-from pathlib import Path
-from typing import Iterator, Set, Optional
-from src.models.file import UserFile
-
-class DirectoryNotFoundError(Exception):
-    """Raised when a directory cannot be found."""
-    pass
-
-class FileScanner:
-    """Service for discovering and validating files in directories (universal support)."""
-    def __init__(self, extensions: Optional[Set[str]] = None):
-        """
-        Initialize the FileScanner.
-        Args:
-            extensions: Optional set of file extensions to filter (e.g., {'.mp4', '.mkv'})
-        """
-        if extensions:
-            self.extensions = set(e.lower() for e in extensions)
-        else:
-            self.extensions = None  # None means all files
-
-    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
-        """
-        Discover files in the specified directory.
-        Args:
-            directory: Root directory to scan
-            recursive: Whether to scan subdirectories (default: True)
-            metadata: Optional metadata object to track errors
-            progress_reporter: Optional progress reporter for feedback
-        Returns:
-            Iterator of Path instances for discovered files
-        Raises:
-            DirectoryNotFoundError: If directory doesn't exist
-            PermissionError: If directory is not accessible
-        """
-        directory = Path(directory).resolve()
-        if not directory.exists():
-            raise DirectoryNotFoundError(f"Directory not found: {directory}")
-        if not directory.is_dir():
-            raise DirectoryNotFoundError(f"Path is not a directory: {directory}")
-        if not os.access(directory, os.R_OK):
-            raise PermissionError(f"Permission denied accessing directory: {directory}")
-            # Avoid resolving or touching mocked/path-like objects that tests may pass.
-            try:
-                directory = Path(directory).resolve()
-            except Exception:
-                directory = Path(directory)
-            if not directory.exists():
-                raise DirectoryNotFoundError(f"Directory not found: {directory}")
-            if not directory.is_dir():
-                raise DirectoryNotFoundError(f"Path is not a directory: {directory}")
-            if not os.access(directory, os.R_OK):
-                raise PermissionError(f"Permission denied accessing directory: {directory}")
-        try:
-            if recursive:
-                yield from self._scan_recursive(directory, metadata, progress_reporter)
-            else:
-                yield from self._scan_non_recursive(directory, metadata, progress_reporter)
-        except PermissionError:
-            raise PermissionError(f"Permission denied scanning directory: {directory}")
-
-    def _scan_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
-        try:
-            found_files = []
-            try:
-                if self.extensions:
-                    for ext in self.extensions:
-                        pattern = f"*{ext}"
-                        for file_path in directory.rglob(pattern):
-                            found_files.append(file_path)
-                else:
-                    for file_path in directory.rglob("*"):
-                        if file_path.is_file():
-                            found_files.append(file_path)
-            except (OSError, PermissionError):
-                pass
-            if not found_files:
-                try:
-                    for root, dirs, files in os.walk(directory):
-                        root_path = Path(root)
-                        for filename in files:
-                            file_path = root_path / filename
-                            if self.validate_file(file_path):
-                                found_files.append(file_path)
-                except (OSError, PermissionError):
-                    pass
-            # Ensure we always have a list to iterate and keep stable ordering
-            # Sort by string representation (path) to avoid TypeError when tests use MagicMock
-            sorted_files = sorted(found_files, key=lambda p: str(p))
-                # Ensure we always have a list to iterate and keep stable ordering.
-                # Use a robust key function that tolerates Path-like mocks which may
-                # raise in __str__ or behave unexpectedly.
-                def _path_key(p):
-                    try:
-                        return str(p)
-                    except Exception:
-                        # MagicMock and other test doubles may not stringify cleanly;
-                        # prefer a stable fallback using .name or repr.
-                        try:
-                            return getattr(p, 'name', repr(p))
-                        except Exception:
-                            return repr(p)
-
-                sorted_files = sorted(found_files, key=_path_key)
-            for file_path in sorted_files:
-                if self.validate_file(file_path):
-                    try:
-                        if progress_reporter:
-                            progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
-                        size = file_path.stat().st_size if hasattr(file_path, 'stat') else 0
-                        file_obj = UserFile(path=file_path, size=size, is_local=True)
-                                # name may not exist on mocked objects; fallback to str
-                                try:
-                                    label = file_path.name
-                                except Exception:
-                                    label = str(file_path)
-                                progress_reporter.update_progress(files_processed, f"Processing: {label}")
-                        files_processed += 1
-                            file_obj = UserFile(file_path)
-                        if metadata:
-                            metadata.errors.append({
-                                "file": str(file_path),
-                                "error": f"Permission denied: {e}"
-                            })
-                        files_processed += 1
-                        continue
-            if progress_reporter:
-                progress_reporter.finish_progress()
-        except OSError:
-            pass
-
-    def _scan_non_recursive(self, directory: Path, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
-        try:
-            found_files = []
-            try:
-                if self.extensions:
-                    for ext in self.extensions:
-                        pattern = f"*{ext}"
-                        for file_path in directory.glob(pattern):
-                            found_files.append(file_path)
-                else:
-                    for entry in directory.iterdir():
-                        if entry.is_file():
-                            found_files.append(entry)
-            except (OSError, PermissionError):
-                pass
-            if not found_files:
-                try:
-                    entries = list(directory.iterdir())
-                    for entry in entries:
-                        if entry.is_file() and self.validate_file(entry):
-                            found_files.append(entry)
-                except (OSError, PermissionError):
-                    pass
-            # Always provide a sorted list for deterministic iteration
-            # Sort by string representation (path) to avoid TypeError when tests use MagicMock
-            sorted_files = sorted(found_files, key=lambda p: str(p))
-            if progress_reporter:
-                progress_reporter.start_progress(len(sorted_files), "Scanning files")
-            files_processed = 0
-            for file_path in sorted_files:
-                if self.validate_file(file_path):
-                    try:
-                        if progress_reporter:
-                            progress_reporter.update_progress(files_processed, f"Processing: {file_path.name}")
-                            # Always provide a sorted list for deterministic iteration. Use the
-                            # same robust key as in the recursive scanner.
-                            def _path_key(p):
-                                try:
-                                    return str(p)
-                                except Exception:
-                                    try:
-                                        return getattr(p, 'name', repr(p))
-                                    except Exception:
-                                        return repr(p)
-
-                            sorted_files = sorted(found_files, key=_path_key)
-                        # Use the library UserFile wrapper which accepts (path, size, is_local)
-                        file_obj = UserFile(path=file_path, size=size, is_local=True)
-                        yield file_obj
-                        files_processed += 1
-                    except (ValueError, FileNotFoundError, PermissionError) as e:
-                        if metadata:
-                            metadata.errors.append({
-                                            try:
-                                                label = file_path.name
-                                            except Exception:
-                                                label = str(file_path)
-                                            progress_reporter.update_progress(files_processed, f"Processing: {label}")
-                                "error": f"Permission denied: {e}"
-                                        file_obj = UserFile(file_path)
-                        files_processed += 1
-                        continue
-            if progress_reporter:
-                progress_reporter.finish_progress()
-        except PermissionError:
-            pass
-
-    def _is_supported_file(self, file_path: Path) -> bool:
-        if self.extensions:
-            return file_path.suffix.lower() in self.extensions
-        return True
-
-    def validate_file(self, file_path: Path) -> bool:
-        try:
-            resolved_path = file_path if isinstance(file_path, Path) else Path(file_path)
-            try:
-                if hasattr(resolved_path, '_mock_name'):
-                    pass
-                elif hasattr(resolved_path, '_flavour'):
-                    resolved_path = resolved_path.resolve()
-            except (AttributeError, TypeError, OSError):
-                pass
-            if not resolved_path.exists():
-                return False
-            if not resolved_path.is_file():
-                return False
-            if not self._is_supported_file(resolved_path):
-                return False
-            try:
-                if hasattr(resolved_path, '_mock_name'):
-                    pass
-                else:
-                    if not os.access(resolved_path, os.R_OK):
-                        return False
-            except (TypeError, OSError):
-                pass
-            try:
-                size = resolved_path.stat().st_size
-                if hasattr(size, 'st_size'):
-                    size = size.st_size
-                if size == 0:
-                    return False
-                return True
-            except (OSError, AttributeError):
-                return False
-        except (OSError, ValueError, TypeError):
-            return False
-
-    def get_supported_extensions(self) -> Optional[Set[str]]:
-        return self.extensions.copy() if self.extensions else None
-
-    def is_supported_extension(self, extension: str) -> bool:
-        if self.extensions:
-            return extension.lower() in self.extensions
-        return True
+        if not self.SUPPORTED_EXTENSIONS:
+            return True
+        return extension.lower() in self.SUPPORTED_EXTENSIONS

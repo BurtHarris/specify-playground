@@ -207,7 +207,7 @@ def main():
     print(f"Found {len(duplicate_groups)} duplicate groups to review")
     print("This tool will help you decide which files to keep/delete.")
     
-    deletion_commands = []
+    deletion_paths = []
     total_space_freed = 0
     
     for group_num, group in enumerate(duplicate_groups, 1):
@@ -262,31 +262,41 @@ def main():
                 size_mb = get_file_size_mb(file_info['size_bytes'])
                 print(f"  - {Path(filepath).name} ({size_mb})")
                 
-                # Generate PowerShell command
-                escaped_path = filepath.replace('"', '""')
-                deletion_commands.append(f'Remove-Item "{escaped_path}" -Verbose')
+                # Record path for cross-platform deletion script
+                deletion_paths.append(filepath)
                 space_freed += file_info['size_bytes']
             
             total_space_freed += space_freed
             print(f"Space freed: {get_file_size_mb(space_freed)}")
     
-    # Generate final script
-    if deletion_commands:
-        script_filename = "interactive_deletions.ps1"
+    # Generate final, cross-platform Python deletion script
+    if deletion_paths:
+        script_filename = "interactive_deletions.py"
         with open(script_filename, 'w', encoding='utf-8') as f:
-            f.write("# Interactive duplicate deletion script\n")
-            f.write("# Generated with human oversight and approval\n\n")
-            
-            for cmd in deletion_commands:
-                f.write(cmd + "\n")
-            
-            f.write(f"\n# Summary: {len(deletion_commands)} files, {get_file_size_mb(total_space_freed)} freed\n")
-        
+            f.write("#!/usr/bin/env python3\n")
+            f.write("from pathlib import Path\n\n")
+            f.write("# Files to delete (review before running)\n")
+            f.write("FILES = [\n")
+            for p in deletion_paths:
+                # Use raw string literal to preserve backslashes on Windows
+                f.write(f"    r'''{p}''',\n")
+            f.write("]\n\n")
+            f.write("def main():\n")
+            f.write("    for p in FILES:\n")
+            f.write("        try:\n")
+            f.write("            Path(p).unlink()\n")
+            f.write("            print('Deleted', p)\n")
+            f.write("        except Exception as e:\n")
+            f.write("            print('Failed to delete', p, '->', e)\n\n")
+            f.write("if __name__ == '__main__':\n")
+            f.write("    main()\n\n")
+            f.write(f"# Summary: {len(deletion_paths)} files, {get_file_size_mb(total_space_freed)} freed\n")
+
         print(f"\n{'='*80}")
         print(f"Deletion script saved to: {script_filename}")
-        print(f"Total files to delete: {len(deletion_commands)}")
+        print(f"Total files to delete: {len(deletion_paths)}")
         print(f"Total space to free: {get_file_size_mb(total_space_freed)}")
-        print(f"Run with: .\\{script_filename}")
+        print(f"Run with: python {script_filename}")
     else:
         print("No deletions selected.")
 

@@ -1,6 +1,97 @@
 # Tasks: Generalize File Support and Add Central Database
 
 **Input**: Design documents from `/specs/004-generalize-file-support/`
+**Prerequisites**: `plan.md` (required). `research.md`, `data-model.md`, `contracts/` if present.
+
+## Execution Flow (main)
+1. Load `plan.md` from feature directory and use tech stack and structure decisions.
+2. Load optional design documents where present and derive tasks.
+3. Generate tasks grouped: Setup, Tests (TDD), Core, Integration, Polish.
+4. Apply task ordering rules: setup → tests → models → services → CLI → integration → polish.
+
+## Important constraints
+- Preserve existing source code and tests; prefer adapting existing tests rather than creating new filesystem/path mocks.
+- Tests must avoid creating ephemeral file path mocks; use small seed fixtures or refactor to use existing helpers.
+- All tasks must include exact file paths and clear acceptance criteria so an LLM or developer can implement them directly.
+
+## Numbering and conventions
+- IDs: T001, T002, ...
+- [P] denotes tasks that can run in parallel (different files, no shared write conflicts).
+
+## Phase 1: Setup
+- [x] T001 Initialize feature workspace and ensure Python 3.12+ is validated at CLI entrypoint (update `src/__main__.py` or CLI entry). Path: `src/__main__.py`. Dependency: none.
+- [x] T002 [P] Add runtime dependencies to `pyproject.toml` or `requirements.txt`: `click`, `PyYAML`, `jsonschema`, `fuzzywuzzy` (or `python-Levenshtein` optional), ensure versions compatible with Python 3.12. Files: `pyproject.toml`, `requirements.txt`.
+
+## Phase 2: Tests First (TDD) — MUST be written and FAIL before implementation
+Note: Tests must not introduce path/file mocking; adapt existing tests or use in-repo small fixtures under `tests/fixtures/`.
+
+- [x] T003 [P] Create contract-style test placeholders for CLI behavior in `tests/contract/test_cli_scan_contract.py`. The test must assert CLI exit codes and output schema (YAML/JSON) without creating filesystem mocks; use existing small sample directories under `tests/fixtures/sample_files/` or require the test to be marked as integration and skipped if samples missing. Acceptance: test imports CLI entrypoint and invokes it via `click.testing.CliRunner`.
+
+- [x] T004 [P] Create integration test scenario for cross-scan duplicate detection in `tests/integration/test_cross_scan_duplicates.py` that uses existing fixture files (do not create mocks). Acceptance: The test runs scanner against `tests/fixtures/sample_files/` and asserts expected duplicate groups count.
+
+- [x] T005 [P] Create unit-test stubs for new data model entities (if `data-model.md` exists) in `tests/unit/test_models.py`, but implement them to use existing in-repo example objects rather than filesystem mocks. Acceptance: tests import models and validate constructors and equality semantics.
+
+## Phase 2 status
+
+- [x] Phase 2 (Tests written and added): Contract, Integration and Unit tests for initial TDD phase added under `tests/` and marked in this tasks file as completed (T003-T005).
+
+
+## Phase 3: Core Implementation (after tests fail)
+Database foundation
+- T006 Implement `src/services/file_database.py`: FileDatabase class with SQLite backend, basic methods: connect(), init_schema(), get_cached_hash(path, size, mtime), set_cached_hash(path, size, mtime, hash). Acceptance: module provides class and schema SQL in `src/services/schema.sql`.
+
+- [x] T006 Implement `src/services/file_database.py`: FileDatabase class with SQLite backend, basic methods: connect(), init_schema(), get_cached_hash(path, size, mtime), set_cached_hash(path, size, mtime, hash). Acceptance: module provides class and schema SQL in `src/services/schema.sql`.
+
+- T007 [P] Implement database-less fallback: when DB is missing/corrupt, FileDatabase raises a specific exception and higher-level code falls back to ephemeral in-memory cache. Files: `src/services/file_database.py`, `src/lib/exceptions.py`.
+
+Model refactor
+- T008 Rename or add `src/models/file_info.py` to replace `VideoFile` conceptually; keep a compatibility thin-wrapper `src/models/video_file.py` that imports from `file_info.py` and preserves prior API surface. Acceptance: existing code referencing `src/models/video_file.py` continues to work.
+
+- T009 [P] Implement `src/models/duplicate_group.py` representing groups of identical files (fields: hash, files:list[path], first_seen, size). Acceptance: model class included and unit-tested by `tests/unit/test_models.py`.
+
+Services
+- T010 Implement `src/services/file_hasher.py` with streaming SHA-256 hash computation (use chunked reads, default chunk 8MB). Acceptance: function `hash_file(path)` returns hex digest and handles permission errors by raising a clear error.
+
+- T011 Implement `src/services/file_scanner.py` (refactor from VideoFileScanner): discovers files using `pathlib.Path.rglob()`, applies optional include/exclude glob patterns from config, groups by size, consults `FileDatabase` for cached hashes, computes hashes for unknowns, and emits `ScanResult` object. Acceptance: exposes `scan(paths, recursive=True, patterns=None)` returning `src/models/scan_result.ScanResult`.
+
+CLI
+- T012 Update CLI scan command in `src/cli/` to accept `--db-path`, `--patterns`, and `--no-recursive`. File: `src/cli/main.py` or `src/__main__.py`. Acceptance: CLI flags present and passed to `file_scanner.scan`.
+
+## Phase 4: Integration
+- T013 [P] Wire `FileDatabase` into `file_scanner` so that hash caching is used: on hash computation, write to DB keyed by size+mtime+path. Files: `src/services/file_scanner.py`, `src/services/file_database.py`.
+
+- T014 Implement cross-scan duplicate detection support: FileDatabase must expose query like `find_by_hash(hash)` returning historical file records. File: `src/services/file_database.py`. Acceptance: `file_scanner` includes cross-scan duplicates in `ScanResult`.
+
+- T015 Add CLI command `db migrate` and `db repair` under `src/cli/db_commands.py` to initialize schema and attempt repair on corruption. Acceptance: commands callable and they call `FileDatabase.init_schema()`.
+
+## Phase 5: Polish and Documentation
+- T016 [P] Add YAML export of `ScanResult` to `src/services/result_exporter.py` using `PyYAML`. Acceptance: provides `export_yaml(result, path)`.
+
+- T017 [P] Add JSON Schema for config file at `specs/004-generalize-file-support/config.schema.json` and a CLI `config validate` command. Files: `specs/004-generalize-file-support/config.schema.json`, `src/cli/config_commands.py`.
+
+- T018 [P] Add/update docs and quickstart in `specs/004-generalize-file-support/quickstart.md` explaining how to run a scan, enable DB caching, and how to recover from DB corruption. Acceptance: file added or updated.
+
+## Testing and Validation Tasks
+- T019 Run unit tests and ensure no new filesystem mocks introduced; update tests that previously used mocks to use in-repo fixtures. Files modified: tests/*
+
+- T020 Add a small performance benchmark script `tools/bench_scan.py` that can run a scan over `tests/fixtures/sample_files/` and report time and DB cache hit rate. Acceptance: script present and runnable.
+
+## Dependencies and ordering notes
+- Setup tasks (T001-T002) must complete before Test tasks (T003-T005).
+- T003-T005 (tests) must exist and fail before core implementation T006-T012.
+- Model tasks (T008-T009) must be implemented before service tasks (T010-T011).
+- DB integration tasks (T013-T015) require T006 and T011.
+
+## Parallel groups (examples)
+- Group A [P]: T003, T004, T005 (contract + integration + unit test stubs)
+- Group B [P]: T009, T010 (model duplicate_group + hasher)
+
+## Acceptance and handoff
+- After implementing each task, run tests and commit in small increments.
+- On completion, mark todo items in the repo and update `specs/004-generalize-file-support/` with `data-model.md` and `contracts/` if generated.
+# Tasks: Generalize File Support and Add Central Database
+
+**Input**: Design documents from `/specs/004-generalize-file-support/`
 **Prerequisites**: plan.md (required), research.md, data-model.md, contracts/
 
 ## Execution Flow (main)

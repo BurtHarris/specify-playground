@@ -11,6 +11,8 @@ from typing import List
 from pathlib import Path
 from fuzzywuzzy import fuzz
 import re
+import time
+from datetime import timedelta
 
 from src.models.file import UserFile
 from ..models.duplicate_group import DuplicateGroup
@@ -20,7 +22,7 @@ from ..models.potential_match_group import PotentialMatchGroup
 class DuplicateDetector:
     """Service for detecting duplicate and potentially similar video files."""
     
-    def find_duplicates(self, files: List[UserFile], progress_reporter=None, verbose: bool = False) -> List[DuplicateGroup]:
+    def find_duplicates(self, files: List[UserFile], progress_reporter=None, verbose: bool = False, metadata=None) -> List[DuplicateGroup]:
         """
         Identifies duplicate files using size and hash comparison.
         
@@ -71,13 +73,14 @@ class DuplicateDetector:
         if verbose:
             groups_with_multiple = sum(1 for file_list in size_groups.values() if len(file_list) >= 2)
             print(f"Found {groups_with_multiple} size groups with potential duplicates")
-        
+
         # Stage 2: For size groups with multiple files, compute hashes
         duplicate_groups = []
         total_files_to_hash = sum(len(file_list) for file_list in size_groups.values() if len(file_list) >= 2)
         hashed_files = 0
         skipped_cloud_files = 0
         skipped_error_files = 0
+        hash_start = time.time()
         
         for file_list in size_groups.values():
             if len(file_list) < 2:
@@ -133,6 +136,26 @@ class DuplicateDetector:
             print(f"  Cloud-only files skipped: {skipped_cloud_files}")
             print(f"  Error files skipped: {skipped_error_files}")
             print(f"  Duplicate groups found: {len(duplicate_groups)}")
+
+        # Populate metadata if provided
+        hash_time = time.time() - hash_start
+        try:
+            if metadata is not None:
+                # files_hashed should reflect actual hashed files (excluding skipped)
+                metadata.files_hashed = max(0, hashed_files - skipped_cloud_files - skipped_error_files)
+                # add to existing timedelta
+                if hasattr(metadata, 'hash_computation_time'):
+                    metadata.hash_computation_time += timedelta(seconds=hash_time)
+                else:
+                    metadata.hash_computation_time = timedelta(seconds=hash_time)
+                # increment error/skip counters
+                if hasattr(metadata, 'total_files_error'):
+                    metadata.total_files_error += skipped_error_files
+                if hasattr(metadata, 'total_files_skipped'):
+                    metadata.total_files_skipped += skipped_cloud_files
+        except Exception:
+            # Do not let metadata failures break duplicate detection
+            pass
         
         return duplicate_groups
     

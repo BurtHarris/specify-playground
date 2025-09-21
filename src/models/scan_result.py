@@ -19,13 +19,17 @@ from .file import UserFile
 class ScanResult:
     """Contains complete results of a video duplicate scanning operation."""
     
-    def __init__(self, metadata: ScanMetadata):
+    def __init__(self, metadata: ScanMetadata | None = None):
         """
         Initialize a ScanResult with metadata.
 
-        Args:
-            metadata: ScanMetadata object containing scan configuration and statistics
+        If metadata is omitted, a default ScanMetadata object will be created
+        so callers can construct ScanResult() for tests and compatibility.
         """
+        if metadata is None:
+            # Create a default ScanMetadata with no paths so tests can
+            # construct ScanResult() without providing metadata.
+            metadata = ScanMetadata([])
         self.metadata = metadata
         self.duplicate_groups: List[DuplicateGroup] = []
         self.potential_match_groups: List[PotentialMatchGroup] = []

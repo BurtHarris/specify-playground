@@ -1,0 +1,28 @@
+# Video Duplicate Scanner CLI Dependencies
+# Python 3.12+ required (checked at runtime)
+
+# CLI Framework
+click>=8.1.0
+
+# Export formats
+PyYAML>=6.0
+
+# Fuzzy string matching
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.12.0  # For better performance
+
+# Windows OneDrive integration (MVP)
+# Uses Python standard library: ctypes for Windows API access
+# No additional dependencies required for local file detection
+
+# Development dependencies
+pytest>=7.0.0
+pytest-mock>=3.10.0
+pytest-cov>=4.0.0
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+sqlite3>=3.0.0
+jsonschema>=4.0.0

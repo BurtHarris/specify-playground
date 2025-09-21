@@ -103,3 +103,6 @@ class ResultExporter:
             return f"{int(size)} {units[unit_index]}"
         else:
             return f"{size:.1f} {units[unit_index]}"
+
+    def export_json(self, result: ScanResult, output_path: Path) -> None:
+        raise NotImplementedError("JSON export has been removed; use YAML export (export_yaml) instead")

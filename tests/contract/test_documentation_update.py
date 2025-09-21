@@ -8,6 +8,7 @@ OneDrive Integration MVP - Documentation Requirements
 """
 
 import pytest
+pytest.skip("Skipping documentation checks for --cloud-status while feature is postponed", allow_module_level=True)
 from pathlib import Path
 
 

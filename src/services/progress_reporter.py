@@ -85,14 +85,16 @@ class ProgressReporter:
     
     def _display_progress(self, current_file: str = None) -> None:
         """Display the progress bar."""
-        if not sys.stdout.isatty():
+        # If progress was explicitly enabled, allow output even when stdout is
+        # not a TTY (CliRunner captures output). Otherwise, respect TTY only.
+        if not sys.stdout.isatty() and not self._enabled:
             return
-        
+
         if self._total_items > 0:
             percentage = min(100.0, (self._current_item / self._total_items) * 100)
         else:
             percentage = 0.0
-        
+
         elapsed_time = time.time() - self._start_time
         if self._current_item > 0 and elapsed_time > 0:
             items_per_second = self._current_item / elapsed_time
@@ -104,18 +106,18 @@ class ProgressReporter:
                 eta_str = "--:--"
         else:
             eta_str = "--:--"
-        
+
         progress_info = f"{self._label} {self._current_item}/{self._total_items} ({percentage:.1f}%) ETA: {eta_str}"
-        
+
         if current_file:
             available_width = self._terminal_width - len(progress_info) - 3
             if available_width > 10:
                 truncated_file = self._truncate_filename(current_file, available_width)
                 progress_info += f" - {truncated_file}"
-        
+
         if len(progress_info) > self._terminal_width:
             progress_info = progress_info[:self._terminal_width - 3] + "..."
-        
+
         sys.stdout.write(f'\r{progress_info}')
         sys.stdout.flush()
     

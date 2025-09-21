@@ -65,7 +65,10 @@ class ConfigManager:
                 home = Path.home()
                 config_dir = home / '.config' / 'video-duplicate-scanner'
         
-        config_dir.mkdir(parents=True, exist_ok=True)
+        # Do not create the directory here; callers that write the config
+        # (e.g., save_config) will ensure the directory exists. Avoiding
+        # directory creation keeps this method side-effect free and prevents
+        # PermissionError in test environments that inspect the path only.
         return config_dir / 'config.yaml'
     
     def load_config(self) -> Dict[str, Any]:
