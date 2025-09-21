@@ -1,3 +1,26 @@
+from pathlib import Path
+from src.services.file_scanner import FileScanner
+from src.services.file_database import InMemoryFileDatabase
+
+
+def test_file_scanner_hashes_and_caches(tmp_path, monkeypatch):
+    # create two files
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_bytes(b"hello world")
+    b.write_bytes(b"another file")
+
+    # force scanner to use an in-memory DB instance
+    monkeypatch.setattr('src.services.file_scanner.get_database', lambda db_path=None: InMemoryFileDatabase())
+
+    scanner = FileScanner(db_path=None, patterns=["*.txt"], recursive=False)
+    results = scanner.scan([tmp_path])
+
+    paths = {r['path']: r for r in results}
+    assert str(a) in paths
+    assert str(b) in paths
+    assert paths[str(a)]['hash'] is not None
+    assert paths[str(b)]['hash'] is not None
 import os
 from types import SimpleNamespace
 from pathlib import Path
