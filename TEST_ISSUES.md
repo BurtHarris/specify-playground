@@ -6,19 +6,15 @@ Test infrastructure: ✅ **Working** - All tests discoverable and executable
 
 ## Critical Issues Requiring Implementation
 
-### 1. **VideoFile Constructor Signature Mismatch**
+### 1. **UserFile Constructor Signature Mismatch**
 **Severity**: High  
 **Category**: API Contract Violation  
-**Description**: Tests expect `VideoFile(path, size, hash)` but implementation only accepts `VideoFile(path)`
+**Description**: Tests expect `UserFile(path, size, hash)` but implementation only accepts `UserFile(path)`
 - **Impact**: All contract tests for duplicate detection failing
 - **Files Affected**: `test_duplicate_detector_contract.py` (15+ test failures)
-- **Root Cause**: Test expectations don't match actual `VideoFile.__init__()` signature
+- **Root Cause**: Test expectations don't match actual `UserFile.__init__()` signature
 
-### 2. **Missing Core Service Implementations** 
-**Severity**: High  
-**Category**: NotImplementedError  
-**Description**: Key services throwing `NotImplementedError` instead of implementing functionality
-- **VideoFileScanner**: "VideoFileScanner not yet implemented"
+-- **UserFileScanner**: "UserFileScanner not yet implemented"
 - **ResultExporter**: "ResultExporter not yet implemented" 
 - **Impact**: All integration and contract tests dependent on these services failing
 
@@ -35,22 +31,22 @@ Test infrastructure: ✅ **Working** - All tests discoverable and executable
 **Category**: Test Implementation  
 **Description**: Path mocking not compatible with `pathlib.Path` operations
 - **Error Pattern**: `TypeError: expected str, bytes or os.PathLike object, not Mock`
-- **Affected**: `test_video_file_scanner.py` (multiple test failures)
-- **Root Cause**: Mock Path objects missing required `__fspath__` and internal path attributes
+- **Affected**: `test_user_file_scanner.py` (multiple test failures)
+**Root Cause**: Mock Path objects missing required `__fspath__` and internal path attributes
 
 ### 5. **String Representation Inconsistencies**
 **Severity**: Low  
 **Category**: Display/Formatting  
 **Description**: Platform-specific path separators causing assertion failures
-- **Example**: Expected `C:\\path` but got `C:/path` in `VideoFile` repr
+- **Example**: Expected `C:\\path` but got `C:/path` in `UserFile` repr
 - **Impact**: Minor display formatting tests failing
 - **Platform**: Windows-specific path separator normalization
 
 ## Implementation Priority
 
 ### High Priority (Blocking Core Functionality)
-1. **Fix VideoFile constructor** - Align test expectations with implementation
-2. **Implement VideoFileScanner** - Core directory scanning functionality  
+1. **Fix UserFile constructor** - Align test expectations with implementation
+2. **Implement UserFileScanner** - Core directory scanning functionality  
 3. **Implement ResultExporter** - Output generation functionality
 
 ### Medium Priority (Test Infrastructure)
@@ -61,8 +57,8 @@ Test infrastructure: ✅ **Working** - All tests discoverable and executable
 6. **Normalize path representations** - Handle platform-specific path separators
 
 ## Next Steps
-1. Review `VideoFile` constructor requirements vs current implementation
-2. Begin implementing `VideoFileScanner.scan_directory()` method
+1. Review `UserFile` constructor requirements vs current implementation
+2. Begin implementing `UserFileScanner.scan_directory()` method
 3. Fix test fixture file handling to prevent Windows permission errors
 4. Implement basic `ResultExporter` functionality
 

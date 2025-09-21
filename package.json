@@ -35,19 +35,19 @@
     "specify",
     "playground"
   ],
-  "author": "Your Name",
+  "author": "Burt Harris",
   "license": "MIT",
   "engines": {
     "python": ">=3.11"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/specify-playground.git"
+    "url": "git+https://github.com/BurtHarris/specify-playground.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/specify-playground/issues"
+    "url": "https://github.com/BurtHarris/specify-playground/issues"
   },
-  "homepage": "https://github.com/yourusername/specify-playground#readme",
+  "homepage": "https://github.com/BurtHarris/specify-playground#readme",
   "dependencies": {
     "typescript": "^4.0.0"
   },

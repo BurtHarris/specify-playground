@@ -34,8 +34,8 @@
 Enable video duplicate scanning of OneDrive files without downloading them to local storage. System must utilize OneDrive's existing metadata and hash information when available to perform duplicate detection across mixed local/cloud environments while respecting bandwidth and storage constraints. Technical approach will focus on OneDrive API integration for metadata access and cloud file detection mechanisms.
 
 ## Technical Context
-**Language/Version**: Python 3.11+ (existing project requirement)  
-**Primary Dependencies**: Click (CLI), pathlib (file ops), hashlib (hashing), NEEDS CLARIFICATION (OneDrive API library)  
+**Language/Version**: Python 3.12+ (requirement aligned with constitution)  
+**Primary Dependencies**: Click (CLI), pathlib (file ops), hashlib (hashing), OneDrive SDK (clarify exact library during research)  
 **Storage**: File system + OneDrive cloud storage metadata  
 **Testing**: pytest with unittest.mock for file system and cloud API mocking  
 **Target Platform**: Cross-platform CLI (Linux, macOS, Windows)  
@@ -109,7 +109,7 @@ ios/ or android/
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
-   - For each NEEDS CLARIFICATION → research task
+   - For each unresolved item (e.g., exact OneDrive SDK choice) → research task
    - For each dependency → best practices task
    - For each integration → patterns task
 
@@ -214,4 +214,4 @@ ios/ or android/
 - [x] Complexity deviations documented ✅ No complexity violations requiring justification
 
 ---
-*Based on Constitution v2.1.1 - See `/memory/constitution.md`*
+*Based on Constitution v2.1.2 - See `/memory/constitution.md`*

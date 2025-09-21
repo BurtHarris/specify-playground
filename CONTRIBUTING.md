@@ -38,6 +38,18 @@ Testing checklist for OneDrive features:
 - [ ] Mock tests cover Windows API error conditions
 - [ ] Integration tests verify real file detection accuracy
 
+## Development Notes: IoC and Series Detection
+
+The project uses a lightweight IoC/container pattern for dependency injection to make components (logger, progress reporter, hasher, and database) swappable for testing and for embedding in other tools. When adding new services, prefer constructor injection or retrieving a container-provided collaborator instead of creating import-time singletons.
+
+Series-detection is intentionally conservative and audit-only: files that look like numbered series (episodes, parts) are recorded as "series-like groups" in scan metadata but are not skipped from hashing or duplicate confirmation. This avoids false negatives while still providing reviewers with a clear, auditable signal about groups that may be sequential parts rather than true duplicates.
+
+Key points for contributors:
+
+- Use `Container()` to obtain a configured logger when writing new modules so the CLI `--log-level` option propagates to the component.
+- Do not skip hashing solely based on series-like heuristics; hashing and size checks remain the source of truth for confirmed duplicates.
+- When introducing heuristics, make them audit-only by default and record the rationale in scan metadata so reviewers can decide programmatically or manually.
+
 Commit message template
 -----------------------
 

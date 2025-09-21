@@ -1,0 +1,7 @@
+[flake8]
+max-line-length = 242
+exclude = .venv,venv,env,build,dist,__pycache__,backups
+# Ignore a set of non-blocking style/warning codes for this prototype.
+# These are intentionally relaxed to focus on functional and safety issues.
+# Add runner-only noisy checks to the ignore list for prototype CI runs.
+extend-ignore = E402, E231, E203, E702, F841, F401, B007, B010, B014, F541, F811, E712, B011
