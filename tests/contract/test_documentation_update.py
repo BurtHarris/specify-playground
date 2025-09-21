@@ -7,12 +7,15 @@ All tests must fail until documentation is updated.
 OneDrive Integration MVP - Documentation Requirements
 """
 
+import os
 import pytest
 
-pytest.skip(
-    "Skipping documentation checks for --cloud-status while feature is postponed",
-    allow_module_level=True,
-)
+# Allow skipping postponed feature contract checks with SPECIFY_SKIP_POSTPONED=1
+if os.getenv("SPECIFY_SKIP_POSTPONED", "0") == "1":
+    pytest.skip(
+        "Skipping documentation checks for --cloud-status while feature is postponed",
+        allow_module_level=True,
+    )
 from pathlib import Path
 
 
@@ -147,9 +150,9 @@ class TestDocumentationUpdateContract:
                     break
         else:
             # If no changelog exists, this requirement is noted for future
-            assert (
-                True
-            ), "Changelog documentation requirement noted for OneDrive feature"
+            raise AssertionError(
+                "Changelog documentation requirement noted for OneDrive feature"
+            )
 
     def test_contributing_guidelines_mention_windows_testing(self):
         """CONTRIBUTING.md must mention Windows testing requirements."""
@@ -165,7 +168,9 @@ class TestDocumentationUpdateContract:
             ), "CONTRIBUTING.md must mention Windows testing for OneDrive features"
         else:
             # If CONTRIBUTING.md doesn't exist, note requirement
-            assert True, "Windows testing requirement noted for CONTRIBUTING.md"
+            raise AssertionError(
+                "Windows testing requirement noted for CONTRIBUTING.md"
+            )
 
     def test_technical_documentation_explains_implementation(self):
         """Technical documentation must explain OneDrive detection implementation."""
@@ -189,9 +194,9 @@ class TestDocumentationUpdateContract:
 
         if not has_technical_details:
             # Contract requirement for technical documentation
-            assert (
-                False
-            ), "Documentation must explain OneDrive detection technical implementation"
+            raise AssertionError(
+                "Documentation must explain OneDrive detection technical implementation"
+            )
 
     def test_error_handling_documentation(self):
         """Documentation must explain error handling for non-Windows platforms."""

@@ -7,12 +7,15 @@ validating that the scanner correctly handles OneDrive cloud status
 detection and filtering during directory traversal.
 """
 
+import os
 import pytest
 
-pytest.skip(
-    "Skipping mixed-directory cloud-status integration tests while cloud-status defaults are local",
-    allow_module_level=True,
-)
+# Skip only when SPECIFY_SKIP_POSTPONED=1 is set (defaults to running tests)
+if os.getenv("SPECIFY_SKIP_POSTPONED", "0") == "1":
+    pytest.skip(
+        "Skipping mixed-directory cloud-status integration tests while cloud-status defaults are local",
+        allow_module_level=True,
+    )
 import platform
 from pathlib import Path
 from unittest.mock import patch
@@ -22,6 +25,22 @@ from src.services.file_scanner import FileScanner
 from src.services.onedrive_service import OneDriveService
 from src.models.cloud_file_status import CloudFileStatus
 from src.models.user_file import UserFile
+
+
+class FakeOneDriveService:
+    """Tiny fake OneDrive service that exposes detect_cloud_status_safe.
+
+    Accepts a side_effect callable(file_path) -> CloudFileStatus|None to
+    simulate detection behavior in tests without patching module imports.
+    """
+
+    def __init__(self, side_effect=None):
+        self._side_effect = side_effect
+
+    def detect_cloud_status_safe(self, file_path):
+        if self._side_effect is None:
+            return CloudFileStatus.LOCAL
+        return self._side_effect(file_path)
 
 
 class TestMixedDirectoryScanIntegration:
@@ -117,26 +136,26 @@ class TestMixedDirectoryScanIntegration:
                 else:
                     return CloudFileStatus.LOCAL
 
-            with patch(
-                "src.services.onedrive_service.OneDriveService.detect_cloud_status_safe",
-                side_effect=mock_detect_status,
-            ):
-                # Scan directory
-                video_files = list(self.scanner.scan_directory(temp_path))
+            # Use injected fake OneDrive service for deterministic behavior
+            scanner = FileScanner(
+                onedrive_service=FakeOneDriveService(mock_detect_status)
+            )
+            # Scan directory
+            video_files = list(scanner.scan_directory(temp_path))
 
-                # Should find both files
-                assert len(video_files) == 2
+            # Should find both files
+            assert len(video_files) == 2
 
-                # Check cloud status for each file
-                for video_file in video_files:
-                    if video_file.path.name == "cloud_video.mkv":
-                        assert video_file.cloud_status == CloudFileStatus.CLOUD_ONLY
-                        assert video_file.is_cloud_only == True
-                        assert video_file.is_local == False
-                    else:
-                        assert video_file.cloud_status == CloudFileStatus.LOCAL
-                        assert video_file.is_cloud_only == False
-                        assert video_file.is_local == True
+            # Check cloud status for each file
+            for video_file in video_files:
+                if video_file.path.name == "cloud_video.mkv":
+                    assert video_file.cloud_status == CloudFileStatus.CLOUD_ONLY
+                    assert video_file.is_cloud_only
+                    assert not video_file.is_local
+                else:
+                    assert video_file.cloud_status == CloudFileStatus.LOCAL
+                    assert not video_file.is_cloud_only
+                    assert video_file.is_local
 
     def test_cloud_only_file_filtering(self):
         """Test that cloud-only files can be identified for filtering."""
@@ -156,19 +175,18 @@ class TestMixedDirectoryScanIntegration:
                     return CloudFileStatus.CLOUD_ONLY
                 return CloudFileStatus.LOCAL
 
-            with patch(
-                "src.services.onedrive_service.OneDriveService.detect_cloud_status_safe",
-                side_effect=mock_detect_status,
-            ):
-                video_files = list(self.scanner.scan_directory(temp_path))
+            scanner = FileScanner(
+                onedrive_service=FakeOneDriveService(mock_detect_status)
+            )
+            video_files = list(scanner.scan_directory(temp_path))
 
-                # Separate local and cloud-only files
-                local_files = [vf for vf in video_files if vf.is_local]
-                cloud_only_files = [vf for vf in video_files if vf.is_cloud_only]
+            # Separate local and cloud-only files
+            local_files = [vf for vf in video_files if vf.is_local]
+            cloud_only_files = [vf for vf in video_files if vf.is_cloud_only]
 
-                assert len(local_files) == 2  # video_0 and video_2
-                assert len(cloud_only_files) == 1  # video_1
-                assert cloud_only_files[0].path.name == "video_1.mp4"
+            assert len(local_files) == 2  # video_0 and video_2
+            assert len(cloud_only_files) == 1  # video_1
+            assert cloud_only_files[0].path.name == "video_1.mp4"
 
     def test_recursive_scan_with_mixed_cloud_status(self):
         """Test recursive scanning with mixed cloud status in subdirectories."""
@@ -196,23 +214,20 @@ class TestMixedDirectoryScanIntegration:
                     return CloudFileStatus.CLOUD_ONLY
                 return CloudFileStatus.LOCAL
 
-            with patch(
-                "src.services.onedrive_service.OneDriveService.detect_cloud_status_safe",
-                side_effect=mock_detect_status,
-            ):
-                # Test recursive scan
-                video_files = list(
-                    self.scanner.scan_directory(temp_path, recursive=True)
-                )
+            scanner = FileScanner(
+                onedrive_service=FakeOneDriveService(mock_detect_status)
+            )
+            # Test recursive scan
+            video_files = list(scanner.scan_directory(temp_path, recursive=True))
 
-                assert len(video_files) == 5
+            assert len(video_files) == 5
 
-                # Check cloud status distribution
-                local_count = sum(1 for vf in video_files if vf.is_local)
-                cloud_count = sum(1 for vf in video_files if vf.is_cloud_only)
+            # Check cloud status distribution
+            local_count = sum(1 for vf in video_files if vf.is_local)
+            cloud_count = sum(1 for vf in video_files if vf.is_cloud_only)
 
-                assert local_count == 3  # Files without "cloud" in name
-                assert cloud_count == 2  # Files with "cloud" in name
+            assert local_count == 3  # Files without "cloud" in name
+            assert cloud_count == 2  # Files with "cloud" in name
 
     def test_error_handling_during_mixed_scan(self):
         """Test error handling when cloud detection fails for some files."""
@@ -231,20 +246,19 @@ class TestMixedDirectoryScanIntegration:
                     return None  # Simulate detection failure
                 return CloudFileStatus.LOCAL
 
-            with patch(
-                "src.services.onedrive_service.OneDriveService.detect_cloud_status_safe",
-                side_effect=mock_detect_status,
-            ):
-                video_files = list(self.scanner.scan_directory(temp_path))
+            scanner = FileScanner(
+                onedrive_service=FakeOneDriveService(mock_detect_status)
+            )
+            video_files = list(scanner.scan_directory(temp_path))
 
-                # Should still find both files
-                assert len(video_files) == 2
+            # Should still find both files
+            assert len(video_files) == 2
 
-                # Files with detection errors should default to LOCAL
-                for video_file in video_files:
-                    # The UserFile should handle detection failures gracefully
-                    status = video_file.cloud_status
-                    assert status == CloudFileStatus.LOCAL  # Fallback behavior
+            # Files with detection errors should default to LOCAL
+            for video_file in video_files:
+                # The UserFile should handle detection failures gracefully
+                status = video_file.cloud_status
+                assert status == CloudFileStatus.LOCAL  # Fallback behavior
 
     def test_non_windows_platform_graceful_degradation(self):
         """Test that scanning works gracefully on non-Windows platforms."""
@@ -267,8 +281,8 @@ class TestMixedDirectoryScanIntegration:
                 # Should default to LOCAL on non-Windows
                 video_file = video_files[0]
                 assert video_file.cloud_status == CloudFileStatus.LOCAL
-                assert video_file.is_local == True
-                assert video_file.is_cloud_only == False
+                assert video_file.is_local
+                assert not video_file.is_cloud_only
 
     def test_performance_impact_of_cloud_detection(self):
         """Test that cloud detection doesn't significantly impact scan performance."""
@@ -308,18 +322,17 @@ class TestMixedDirectoryScanIntegration:
                 call_count += 1
                 return CloudFileStatus.LOCAL
 
-            with patch(
-                "src.services.onedrive_service.OneDriveService.detect_cloud_status_safe",
-                side_effect=counting_detect_status,
-            ):
-                video_files = list(self.scanner.scan_directory(temp_path))
-                video_file = video_files[0]
+            scanner = FileScanner(
+                onedrive_service=FakeOneDriveService(counting_detect_status)
+            )
+            video_files = list(scanner.scan_directory(temp_path))
+            video_file = video_files[0]
 
-                # Access cloud status multiple times
-                status1 = video_file.cloud_status
-                status2 = video_file.cloud_status
-                status3 = video_file.cloud_status
+            # Access cloud status multiple times
+            status1 = video_file.cloud_status
+            status2 = video_file.cloud_status
+            status3 = video_file.cloud_status
 
-                assert status1 == status2 == status3
-                # Should only call detection once due to caching
-                assert call_count == 1
+            assert status1 == status2 == status3
+            # Should only call detection once due to caching
+            assert call_count == 1

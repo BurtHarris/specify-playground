@@ -16,10 +16,16 @@ def test_cross_scan_duplicate_detection(tmp_path):
     """
 
     fixture_dir = Path("tests/fixtures/sample_files")
+    use_temp_fixture_dir = False
     if not fixture_dir.exists():
-        pytest.skip(
-            "No sample fixture directory present at tests/fixtures/sample_files/"
-        )
+        # Create a small temporary fixture directory instead of skipping
+        fixture_dir = tmp_path / "sample_files"
+        fixture_dir.mkdir(parents=True, exist_ok=True)
+        # create two files with identical content (duplicates) and one unique
+        (fixture_dir / "dup1.txt").write_bytes(b"duplicate content")
+        (fixture_dir / "dup2.txt").write_bytes(b"duplicate content")
+        (fixture_dir / "unique.txt").write_bytes(b"unique content")
+        use_temp_fixture_dir = True
 
     runner = CliRunner()
 

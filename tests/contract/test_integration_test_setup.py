@@ -7,12 +7,16 @@ All tests must fail until integration tests are implemented.
 OneDrive Integration MVP - Integration Test Requirements
 """
 
+import os
 import pytest
 
-pytest.skip(
-    "Skipping integration-test-setup contract checks while cloud-status is postponed",
-    allow_module_level=True,
-)
+# By default run these contract checks. To keep skipping postponed features set
+# SPECIFY_SKIP_POSTPONED=1 in the environment.
+if os.getenv("SPECIFY_SKIP_POSTPONED", "0") == "1":
+    pytest.skip(
+        "Skipping integration-test-setup contract checks while cloud-status is postponed",
+        allow_module_level=True,
+    )
 from pathlib import Path
 
 
@@ -81,9 +85,9 @@ class TestIntegrationTestSetupContract:
                 mock_api_tests_exist
             ), "Integration tests must include Windows API mocking scenarios"
         else:
-            assert (
-                False
-            ), "Integration test directory must exist with Windows API mocking tests"
+            raise AssertionError(
+                "Integration test directory must exist with Windows API mocking tests"
+            )
 
     def test_cloud_status_end_to_end_integration_tests(self):
         """End-to-end integration tests for cloud status workflow must exist."""

@@ -177,7 +177,7 @@ def get_user_choice_simple(files):
 
 def show_auto_decision(files):
     """Show what the auto-decision would be and return the recommendation."""
-    print(f"\nAUTO-DECISION ANALYSIS:")
+    print("\nAUTO-DECISION ANALYSIS:")
     print("=" * 60)
 
     # Score files based on name quality
@@ -237,7 +237,9 @@ def show_auto_decision(files):
         print(
             f"      Score: {score:+3d} - {', '.join(reasons) if reasons else 'no bonuses/penalties'}"
         )
-    print(f"RECOMMENDATION: Keep file #{best_index + 1} (highest score: {scores[0][0]})")
+    print(
+        f"RECOMMENDATION: Keep file #{best_index + 1} (highest score: {scores[0][0]})"
+    )
 
     return best_index
 
@@ -331,7 +333,7 @@ def main():
                 file_info = files[file_num - 1]
                 filepath = file_info["path"]
                 size_mb = get_file_size_mb(file_info["size_bytes"])
-                print(f"  - {Path(filepath).name} ({size_mb})")
+                print(f" - {Path(filepath).name} ({size_mb})")
 
                 # Record path for cross-platform deletion script
                 deletion_paths.append(filepath)

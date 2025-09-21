@@ -4,7 +4,9 @@ import fnmatch
 import os
 
 from src.services.file_database import get_database
-from src.models.file import UserFile
+from src.models.user_file import UserFile
+from src.models.cloud_file_status import CloudFileStatus
+from src.services.onedrive_service import OneDriveService
 
 from src.lib.interfaces import (
     FileDatabaseProtocol,
@@ -42,6 +44,7 @@ class FileScanner:
         db=None,
         hasher=None,
         logger=None,
+        onedrive_service=None,
     ):
         # Allow injection of database, hasher, and logger for testing and IoC.
         # If not provided, fall back to module-level factories for backward
@@ -66,6 +69,17 @@ class FileScanner:
         self.patterns = patterns or ["*"]
         self.recursive = recursive
         self.chunk_size = chunk_size
+        # Initialize or accept injected OneDrive service for cloud-status
+        # detection; keep a single instance for the scanner lifetime to
+        # allow caching. Accepting an injected service enables IoC for
+        # tests and platforms where OneDrive API is unavailable.
+        if onedrive_service is not None:
+            self._onedrive = onedrive_service
+        else:
+            try:
+                self._onedrive = OneDriveService()
+            except Exception:
+                self._onedrive = None
 
     # --- compatibility helpers (legacy API) ---------------------------------
     def scan_directory(
@@ -141,7 +155,25 @@ class FileScanner:
                     except Exception:
                         pass
 
-                yield UserFile(entry)
+                # Build the UserFile and attach cloud-status information
+                user_file = UserFile(entry)
+                try:
+                    if self._onedrive is not None:
+                        status = self._onedrive.detect_cloud_status_safe(entry)
+                    else:
+                        status = CloudFileStatus.LOCAL
+                    # Treat detection None as LOCAL fallback for graceful
+                    # degradation and tests that expect a concrete status.
+                    if status is None:
+                        status = CloudFileStatus.LOCAL
+                    # Attach status and convenience flags expected by tests
+                    user_file.cloud_status = status
+                    user_file.is_cloud_only = status == CloudFileStatus.CLOUD_ONLY
+                    user_file.is_local = status != CloudFileStatus.CLOUD_ONLY
+                except Exception:
+                    # If detection fails, leave defaults (LOCAL)
+                    pass
+                yield user_file
             except PermissionError:
                 raise
             except Exception:

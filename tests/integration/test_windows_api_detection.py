@@ -177,7 +177,7 @@ class TestWindowsAPIDetectionIntegration:
 
         if is_windows_platform():
             assert "platform" in info
-            assert info["platform"]["onedrive_supported"] == True
+            assert info["platform"]["onedrive_supported"]
 
     def test_error_propagation_through_service(self):
         """Test that errors propagate correctly through the service layer."""
