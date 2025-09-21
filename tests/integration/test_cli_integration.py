@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import yaml
 from pathlib import Path
+
 # no patch imports required here
 
 
@@ -33,15 +34,11 @@ class TestCLIIntegration:
             video1 = temp_dir / "movie1.mp4"
             video2 = temp_dir / "movie1_copy.mkv"  # Duplicate content
             video3 = temp_dir / "movie2.mov"  # Different content
-            video4 = (
-                temp_dir / "similar_movie.mp4"
-            )  # Similar name, different content
+            video4 = temp_dir / "similar_movie.mp4"  # Similar name, different content
 
             # Create files with known content for hash testing
             video1.write_bytes(b"Video content 1" * 100)  # ~1.5KB
-            video2.write_bytes(
-                b"Video content 1" * 100
-            )  # Same content as video1
+            video2.write_bytes(b"Video content 1" * 100)  # Same content as video1
             video3.write_bytes(b"Video content 2" * 100)  # Different content
             video4.write_bytes(b"Video content 3" * 100)  # Different content
 
@@ -58,9 +55,7 @@ class TestCLIIntegration:
     def test_cli_help_command(self):
         """Test that the CLI help command works."""
         # Use the current workspace directory instead of hardcoded path
-        workspace_dir = Path(
-            __file__
-        ).parent.parent.parent  # Go up to workspace root
+        workspace_dir = Path(__file__).parent.parent.parent  # Go up to workspace root
 
         result = subprocess.run(
             ["python", "-m", "src", "--help"],
@@ -293,9 +288,7 @@ class TestCLIIntegration:
             all_files.extend([f["path"] for f in group["files"]])
 
         # Should not find movie3.mp4 which is in subdirectory
-        subdir_files = [
-            f for f in all_files if "subdir" in f or "movie3.mp4" in f
-        ]
+        subdir_files = [f for f in all_files if "subdir" in f or "movie3.mp4" in f]
         assert (
             len(subdir_files) == 0
         ), "Non-recursive scan should not include subdirectory files"
@@ -310,10 +303,7 @@ class TestCLIIntegration:
         )
 
         assert result.returncode != 0
-        assert (
-            "error" in result.stderr.lower()
-            or "not found" in result.stderr.lower()
-        )
+        assert "error" in result.stderr.lower() or "not found" in result.stderr.lower()
 
     def test_cli_progress_reporting(self, temp_video_dir):
         """Test that CLI shows progress information."""

@@ -12,6 +12,7 @@ import tempfile
 from src.services.duplicate_detector import DuplicateDetector
 from src.models.user_file import UserFile
 from src.models.duplicate_group import DuplicateGroup
+
 # PotentialMatchGroup not used in unit tests here
 
 
@@ -183,9 +184,7 @@ class TestDuplicateDetector:
             for file_path in files:
                 video_files.append(UserFile(file_path))
 
-            result = detector.find_potential_matches(
-                video_files, threshold=0.5
-            )
+            result = detector.find_potential_matches(video_files, threshold=0.5)
 
             # Should find potential matches due to similar names
             # Note: This might be 0 if the similarity isn't high enough
@@ -212,14 +211,10 @@ class TestDuplicateDetector:
                 video_files.append(UserFile(file_path))
 
             # High threshold - should find fewer matches
-            result_high = detector.find_potential_matches(
-                video_files, threshold=0.9
-            )
+            result_high = detector.find_potential_matches(video_files, threshold=0.9)
 
             # Low threshold - should find more matches
-            result_low = detector.find_potential_matches(
-                video_files, threshold=0.3
-            )
+            result_low = detector.find_potential_matches(video_files, threshold=0.3)
 
             # Low threshold should find at least as many as high threshold
             assert len(result_low) >= len(result_high)

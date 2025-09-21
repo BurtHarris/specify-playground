@@ -58,18 +58,14 @@ class OneDriveService:
             WindowsOneDriveAPIError: If Windows API call fails
         """
         if not self._supported:
-            raise RuntimeError(
-                "OneDrive detection not supported on this platform"
-            )
+            raise RuntimeError("OneDrive detection not supported on this platform")
 
         # Use the Windows API utility for detection
         from ..lib.windows_onedrive_api import detect_cloud_status
 
         return detect_cloud_status(file_path)
 
-    def detect_cloud_status_safe(
-        self, file_path: Path
-    ) -> Optional[CloudFileStatus]:
+    def detect_cloud_status_safe(self, file_path: Path) -> Optional[CloudFileStatus]:
         """
         Safely detect cloud status with graceful error handling.
 

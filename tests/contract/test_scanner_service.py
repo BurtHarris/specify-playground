@@ -90,9 +90,7 @@ class TestVideoFileScannerContract:
     @pytest.mark.contract
     def test_scan_directory_recursive_finds_all_videos(self):
         """Test: Recursive scan finds video files in subdirectories."""
-        files = list(
-            self.scanner.scan_directory(Path(self.temp_dir), recursive=True)
-        )
+        files = list(self.scanner.scan_directory(Path(self.temp_dir), recursive=True))
 
         # Contract: MUST find all video files recursively
         video_paths = [f.path for f in files]
@@ -113,9 +111,7 @@ class TestVideoFileScannerContract:
     @pytest.mark.contract
     def test_scan_directory_non_recursive_only_root_level(self):
         """Test: Non-recursive scan only finds root level video files."""
-        files = list(
-            self.scanner.scan_directory(Path(self.temp_dir), recursive=False)
-        )
+        files = list(self.scanner.scan_directory(Path(self.temp_dir), recursive=False))
 
         # Contract: MUST only find root level files when not recursive
         video_paths = [f.path for f in files]
@@ -289,9 +285,7 @@ class TestVideoFileScannerContract:
                 result = self.scanner.validate_file(file)
                 assert isinstance(result, bool)
             except Exception as e:
-                pytest.fail(
-                    f"validate_file should not raise exceptions, got: {e}"
-                )
+                pytest.fail(f"validate_file should not raise exceptions, got: {e}")
 
     @pytest.mark.contract
     def test_scan_directory_handles_symbolic_links(self):
@@ -316,9 +310,7 @@ class TestVideoFileScannerContract:
 
         # Should handle symlinks without crashing
         # Exact behavior (include/exclude) depends on implementation choice
-        assert (
-            len(video_paths) >= 1
-        )  # At least the target file should be found
+        assert len(video_paths) >= 1  # At least the target file should be found
 
     @pytest.mark.contract
     def test_scan_directory_case_insensitive_extensions(self):

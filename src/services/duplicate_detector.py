@@ -29,7 +29,30 @@ MAJORITY_SERIES_THRESHOLD = 0.6
 
 
 class DuplicateDetector:
-    """Service for detecting duplicate and potentially similar video files."""
+    """Service for detecting duplicate and potentially similar video files.
+
+    Accepts optional injected collaborators (progress_reporter, logger)
+    so callers can supply test doubles or shared instances via an IoC
+    container. Backwards-compatible: methods still accept a per-call
+    progress_reporter which takes precedence over the injected one.
+    """
+
+    def __init__(self, progress_reporter=None, logger=None):
+        self._injected_reporter = progress_reporter
+        # Prefer injected logger; otherwise obtain from Container so
+        # logging configuration (level/handlers) is centralized. Fall
+        # back to stdlib logger if container isn't available.
+        if logger is not None:
+            self._logger = logger
+        else:
+            try:
+                from src.lib.container import Container
+
+                self._logger = Container().logger()
+            except Exception:
+                import logging as _logging
+
+                self._logger = _logging.getLogger(__name__)
 
     def find_duplicates(
         self,
@@ -75,9 +98,7 @@ class DuplicateDetector:
             # Show detailed analysis of each file
             print("File analysis:")
             for user_file in files:
-                cloud_status = (
-                    "CLOUD-ONLY" if user_file.is_cloud_only else "LOCAL"
-                )
+                cloud_status = "CLOUD-ONLY" if user_file.is_cloud_only else "LOCAL"
                 size_mb = user_file.size / (1024 * 1024)
                 print(
                     f"  {cloud_status:10} | {size_mb:8.1f} MB | {user_file.path.name}"
@@ -99,9 +120,7 @@ class DuplicateDetector:
             groups_with_multiple = sum(
                 1 for file_list in size_groups.values() if len(file_list) >= 2
             )
-            print(
-                f"Found {groups_with_multiple} size groups with potential duplicates"
-            )
+            print(f"Found {groups_with_multiple} size groups with potential duplicates")
             # series count will be reported after analysis when known
         # NOTE: Do NOT skip hashing for series-numbered groups.
         # If sizes match, always run the hash. Only treat as series if hashes differ.
@@ -112,9 +131,7 @@ class DuplicateDetector:
         # Stage 2: For size groups with multiple files, compute hashes
         duplicate_groups = []
         total_files_to_hash = sum(
-            len(file_list)
-            for file_list in size_groups.values()
-            if len(file_list) >= 2
+            len(file_list) for file_list in size_groups.values() if len(file_list) >= 2
         )
         hashed_files = 0
         skipped_cloud_files = 0
@@ -131,8 +148,7 @@ class DuplicateDetector:
             # group to avoid false-positive duplicate groups.
             try:
                 names = [
-                    self._extract_filename_for_comparison(f.path)
-                    for f in file_list
+                    self._extract_filename_for_comparison(f.path) for f in file_list
                 ]
                 # Use a majority-rule: compute how many unique filename
                 # pairs within the size-group would be excluded from
@@ -202,10 +218,21 @@ class DuplicateDetector:
             for file in file_list:
                 try:
                     # Report progress if reporter available
-                    if progress_reporter:
-                        progress_reporter.update_progress(
-                            hashed_files, f"Computing hash: {file.path.name}"
-                        )
+                    # Prefer a per-call reporter if provided, otherwise use
+                    # the injected reporter supplied at construction time.
+                    reporter_to_use = (
+                        progress_reporter
+                        if progress_reporter is not None
+                        else getattr(self, "_injected_reporter", None)
+                    )
+                    if reporter_to_use:
+                        try:
+                            reporter_to_use.update_progress(
+                                hashed_files, f"Computing hash: {file.path.name}"
+                            )
+                        except Exception:
+                            # Guard against reporter failures
+                            pass
 
                     # Skip hash computation for cloud-only files to avoid triggering downloads
                     if hasattr(file, "is_cloud_only") and file.is_cloud_only:
@@ -227,9 +254,7 @@ class DuplicateDetector:
                     hashed_files += 1
                 except (OSError, PermissionError) as e:
                     if verbose:
-                        print(
-                            f"  SKIPPED (error): {user_file.path.name} - {e}"
-                        )
+                        print(f"  SKIPPED (error): {user_file.path.name} - {e}")
                     # Skip files that can't be read
                     hashed_files += 1
                     skipped_error_files += 1
@@ -239,9 +264,7 @@ class DuplicateDetector:
             for file_hash, files_with_same_hash in hash_groups.items():
                 if len(files_with_same_hash) >= 2:
                     # Preserve file order within groups
-                    duplicate_group = DuplicateGroup(
-                        file_hash, files_with_same_hash
-                    )
+                    duplicate_group = DuplicateGroup(file_hash, files_with_same_hash)
                     duplicate_groups.append(duplicate_group)
                     if verbose:
                         print(
@@ -277,13 +300,9 @@ class DuplicateDetector:
                 )
                 # add to existing timedelta
                 if hasattr(metadata, "hash_computation_time"):
-                    metadata.hash_computation_time += timedelta(
-                        seconds=hash_time
-                    )
+                    metadata.hash_computation_time += timedelta(seconds=hash_time)
                 else:
-                    metadata.hash_computation_time = timedelta(
-                        seconds=hash_time
-                    )
+                    metadata.hash_computation_time = timedelta(seconds=hash_time)
                 # increment error/skip counters
                 if hasattr(metadata, "total_files_error"):
                     metadata.total_files_error += skipped_error_files

@@ -20,9 +20,7 @@ except Exception:
 class DuplicateGroup:
     """Represents a group of UserFiles with identical content."""
 
-    def __init__(
-        self, hash_value: str, files: Optional[List[UserFile]] = None
-    ):
+    def __init__(self, hash_value: str, files: Optional[List[UserFile]] = None):
         """
         Initialize a DuplicateGroup.
 
@@ -112,10 +110,7 @@ class DuplicateGroup:
         # Accept either the compatibility wrapper UserFile or the concrete implementation
         if not (
             isinstance(file, UserFile)
-            or (
-                _ConcreteUserFile is not None
-                and isinstance(file, _ConcreteUserFile)
-            )
+            or (_ConcreteUserFile is not None and isinstance(file, _ConcreteUserFile))
         ):
             raise TypeError("Can only add UserFile instances")
 
@@ -279,7 +274,9 @@ class DuplicateGroup:
 
     def __str__(self) -> str:
         """String representation showing hash and file count."""
-        return f"DuplicateGroup(hash={self._hash_value[:12]}..., files={len(self._files)})"
+        return (
+            f"DuplicateGroup(hash={self._hash_value[:12]}..., files={len(self._files)})"
+        )
 
     def __repr__(self) -> str:
         """Detailed string representation for debugging."""
@@ -303,10 +300,7 @@ class DuplicateGroup:
         if not isinstance(other, DuplicateGroup):
             return False
 
-        return (
-            self._hash_value == other._hash_value
-            and self._files == other._files
-        )
+        return self._hash_value == other._hash_value and self._files == other._files
 
     def __hash__(self) -> int:
         """Hash based on group hash value for use in sets and dicts."""

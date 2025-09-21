@@ -1,8 +1,10 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 from src.services.file_scanner import FileScanner
+from src.lib.container import Container
 
-scanner = FileScanner()
+container = Container()
+scanner = FileScanner(logger=container.logger())
 
 # Set up mocks matching the test
 user_file1 = Mock(spec=Path)

@@ -56,10 +56,7 @@ class ConfigManager:
             # macOS: ~/Library/Application Support/video-duplicate-scanner/config.yaml
             home = Path.home()
             config_dir = (
-                home
-                / "Library"
-                / "Application Support"
-                / "video-duplicate-scanner"
+                home / "Library" / "Application Support" / "video-duplicate-scanner"
             )
         else:
             # Linux: ~/.config/video-duplicate-scanner/config.yaml (XDG compliant)
@@ -101,9 +98,7 @@ class ConfigManager:
 
             except Exception as e:
                 # Fall back to defaults if config is corrupted
-                print(
-                    f"Warning: Could not load config file ({e}), using defaults"
-                )
+                print(f"Warning: Could not load config file ({e}), using defaults")
                 self._config = self.DEFAULT_CONFIG.copy()
                 self.save_config()
 
@@ -193,9 +188,7 @@ class ConfigManager:
 
         self.save_config()
 
-    def get_scan_history(
-        self, limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+    def get_scan_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get scan history, optionally limited to a number of entries."""
         config = self.load_config()
         history = config.get("scanned_directories", [])

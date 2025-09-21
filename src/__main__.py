@@ -77,9 +77,7 @@ def _maybe_insert_scan_subcommand():
 
                 # Build remaining tokens (excluding moved ones)
                 remaining = [
-                    sys.argv[k]
-                    for k in range(len(sys.argv))
-                    if k not in move_indices
+                    sys.argv[k] for k in range(len(sys.argv)) if k not in move_indices
                 ]
 
                 # Find new index of the directory token in remaining
@@ -99,10 +97,7 @@ def _maybe_insert_scan_subcommand():
                     remaining = sys.argv[:]
                     moved = []
                     new_argv = (
-                        remaining[:insert_at]
-                        + ["scan"]
-                        + moved
-                        + remaining[insert_at:]
+                        remaining[:insert_at] + ["scan"] + moved + remaining[insert_at:]
                     )
                 else:
                     new_argv = (

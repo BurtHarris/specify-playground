@@ -158,9 +158,7 @@ class TestYAMLExportIntegration:
         # Should be more readable than JSON (minimal brackets/braces)
         assert content.count("{") == 0  # No JSON-style objects
         # Empty lists in YAML can be [] which is acceptable
-        assert (
-            content.count("[") <= 2
-        )  # Minimal use of brackets (empty lists only)
+        assert content.count("[") <= 2  # Minimal use of brackets (empty lists only)
 
     @pytest.mark.integration
     def test_yaml_export_file_size_human_readable(self):
@@ -203,9 +201,7 @@ class TestYAMLExportIntegration:
         ), "Should contain human-readable size units"
 
         # Should not show raw byte counts for large files
-        assert (
-            "1073741824" not in content
-        )  # Raw 1GB byte count should be formatted
+        assert "1073741824" not in content  # Raw 1GB byte count should be formatted
 
     @pytest.mark.integration
     def test_yaml_export_preserves_unicode(self):
@@ -347,9 +343,7 @@ class TestYAMLExportIntegration:
             "# Video Duplicate Scanner",
             "# Results",
         ]
-        has_comments = any(
-            indicator in content for indicator in comment_indicators
-        )
+        has_comments = any(indicator in content for indicator in comment_indicators)
 
         # If no comments, should at least have clear section headers
         if not has_comments:
@@ -379,9 +373,7 @@ class TestYAMLExportIntegration:
             if len(group.files) > 1:
                 # Savings = (number of duplicates - 1) * file size
                 file_size = (
-                    group.files[0].size
-                    if hasattr(group.files[0], "size")
-                    else 0
+                    group.files[0].size if hasattr(group.files[0], "size") else 0
                 )
                 total_savings += (len(group.files) - 1) * file_size
 
@@ -465,9 +457,7 @@ class TestYAMLExportIntegration:
 
         # Should have minimal special characters (more readable than JSON)
         special_chars = (
-            yaml_content.count("{")
-            + yaml_content.count("}")
-            + yaml_content.count('"')
+            yaml_content.count("{") + yaml_content.count("}") + yaml_content.count('"')
         )
         assert (
             special_chars < len(yaml_content) * 0.1
@@ -476,13 +466,9 @@ class TestYAMLExportIntegration:
         # Should have proper indentation structure
         lines = yaml_content.split("\n")
         indented_lines = [
-            line
-            for line in lines
-            if line.startswith("  ") or line.startswith("    ")
+            line for line in lines if line.startswith("  ") or line.startswith("    ")
         ]
-        assert (
-            len(indented_lines) > 0
-        ), "YAML should have proper indentation structure"
+        assert len(indented_lines) > 0, "YAML should have proper indentation structure"
 
     @pytest.mark.integration
     def test_yaml_export_automatic_extension_detection(self):

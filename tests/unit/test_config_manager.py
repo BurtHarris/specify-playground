@@ -35,9 +35,7 @@ class TestConfigManager:
 
         assert set(ConfigManager.DEFAULT_CONFIG.keys()) == expected_keys
         assert ConfigManager.DEFAULT_CONFIG["fuzzy_threshold"] == 0.8
-        assert (
-            ConfigManager.DEFAULT_CONFIG["large_file_threshold"] == 104857600
-        )
+        assert ConfigManager.DEFAULT_CONFIG["large_file_threshold"] == 104857600
         assert ConfigManager.DEFAULT_CONFIG["default_output_format"] == "yaml"
         assert ConfigManager.DEFAULT_CONFIG["recursive_scan"] is True
         assert ConfigManager.DEFAULT_CONFIG["scanned_directories"] == []
@@ -47,18 +45,14 @@ class TestConfigManager:
         """Test Windows configuration path."""
         mock_system.return_value = "Windows"
 
-        with patch.dict(
-            os.environ, {"APPDATA": "C:/Users/Test/AppData/Roaming"}
-        ):
+        with patch.dict(os.environ, {"APPDATA": "C:/Users/Test/AppData/Roaming"}):
             config_manager = ConfigManager()
             config_path = config_manager.get_config_path()
 
             # Check that the path contains the expected components
             assert "video-duplicate-scanner" in str(config_path)
             assert "config.yaml" in str(config_path)
-            assert "AppData" in str(config_path) or "APPDATA" in str(
-                config_path
-            )
+            assert "AppData" in str(config_path) or "APPDATA" in str(config_path)
 
     @patch("platform.system")
     @patch("pathlib.Path.home")
@@ -91,16 +85,12 @@ class TestConfigManager:
 
     @patch("platform.system")
     @patch("pathlib.Path.home")
-    def test_config_path_linux_with_xdg_config_home(
-        self, mock_home, mock_system
-    ):
+    def test_config_path_linux_with_xdg_config_home(self, mock_home, mock_system):
         """Test Linux configuration path with XDG_CONFIG_HOME set."""
         mock_system.return_value = "Linux"
         mock_home.return_value = Path("/home/test")
 
-        with patch.dict(
-            os.environ, {"XDG_CONFIG_HOME": "/home/test/.custom-config"}
-        ):
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/home/test/.custom-config"}):
             config_manager = ConfigManager()
             expected_path = Path(
                 "/home/test/.custom-config/video-duplicate-scanner/config.yaml"
@@ -286,13 +276,9 @@ class TestConfigManager:
                 assert len(history) == 20
 
                 # First entry should be the most recent (directory24)
-                assert history[0]["path"] == str(
-                    Path("/test/directory24").resolve()
-                )
+                assert history[0]["path"] == str(Path("/test/directory24").resolve())
                 # Last entry should be directory5 (24, 23, ..., 5)
-                assert history[19]["path"] == str(
-                    Path("/test/directory5").resolve()
-                )
+                assert history[19]["path"] == str(Path("/test/directory5").resolve())
 
     def test_clear_scan_history(self):
         """Test clearing scan history."""

@@ -48,9 +48,7 @@ class TestPotentialMatchGroup:
         """Test basic PotentialMatchGroup creation."""
         base_name = "movie"
         threshold = 0.8
-        group = PotentialMatchGroup(
-            base_name, threshold, sample_user_files[:2]
-        )
+        group = PotentialMatchGroup(base_name, threshold, sample_user_files[:2])
         assert group.base_name == base_name
         assert group.similarity_threshold == threshold
         assert len(group.files) == 2
@@ -116,16 +114,12 @@ class TestPotentialMatchGroup:
         """Test that removing non-existent file returns False."""
         base_name = "movie"
         threshold = 0.8
-        group = PotentialMatchGroup(
-            base_name, threshold, sample_video_files[:1]
-        )
+        group = PotentialMatchGroup(base_name, threshold, sample_video_files[:1])
 
         # Try to remove a file that's not in the group
         result = group.remove_file(sample_video_files[1])
         assert result is False
-        assert (
-            len(group.files) == 1
-        )  # Group should still have the original file
+        assert len(group.files) == 1  # Group should still have the original file
 
     def test_file_count_property(self, sample_video_files):
         """Test file_count property."""
@@ -141,9 +135,7 @@ class TestPotentialMatchGroup:
         base_name2 = "movieZ"  # Similar but different base name
         threshold = 0.8
 
-        group1 = PotentialMatchGroup(
-            base_name1, threshold, sample_video_files[:1]
-        )
+        group1 = PotentialMatchGroup(base_name1, threshold, sample_video_files[:1])
         group2 = PotentialMatchGroup(
             base_name2, threshold, sample_video_files[2:3]
         )  # Use movieX file which should be compatible
@@ -154,9 +146,7 @@ class TestPotentialMatchGroup:
         """Test that base name follows expected format."""
         base_name = "movie"
         threshold = 0.8
-        group = PotentialMatchGroup(
-            base_name, threshold, sample_video_files[:2]
-        )
+        group = PotentialMatchGroup(base_name, threshold, sample_video_files[:2])
 
         # Base name should be a string
         assert isinstance(group.base_name, str)
@@ -166,9 +156,7 @@ class TestPotentialMatchGroup:
         """Test string representation of PotentialMatchGroup."""
         base_name = "movie"
         threshold = 0.8
-        group = PotentialMatchGroup(
-            base_name, threshold, sample_video_files[:2]
-        )
+        group = PotentialMatchGroup(base_name, threshold, sample_video_files[:2])
         str_repr = str(group)
 
         assert "PotentialMatchGroup" in str_repr
@@ -180,17 +168,13 @@ class TestPotentialMatchGroup:
         base_name = "movie"
         threshold = 0.8
 
-        group1 = PotentialMatchGroup(
-            base_name, threshold, sample_video_files[:2]
-        )
+        group1 = PotentialMatchGroup(base_name, threshold, sample_video_files[:2])
         group2 = PotentialMatchGroup(
             base_name, threshold, sample_video_files[:2]
         )  # Same files
 
         # Create a compatible base name for the third group test
-        compatible_base = (
-            "moviefilm"  # This should have high similarity with movieX
-        )
+        compatible_base = "moviefilm"  # This should have high similarity with movieX
         group3 = PotentialMatchGroup(
             compatible_base, 0.6, sample_video_files[2:3]
         )  # Lower threshold for compatibility
@@ -203,9 +187,7 @@ class TestPotentialMatchGroup:
         """Test to_dict method."""
         base_name = "movie"
         threshold = 0.8
-        group = PotentialMatchGroup(
-            base_name, threshold, sample_video_files[:2]
-        )
+        group = PotentialMatchGroup(base_name, threshold, sample_video_files[:2])
 
         data = group.to_dict()
 

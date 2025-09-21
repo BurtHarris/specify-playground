@@ -53,12 +53,8 @@ class TestBasicDuplicateDetection:
         self.duplicate_content = (
             b"Duplicate video content for testing" * 10000
         )  # ~350KB
-        self.unique_content1 = (
-            b"Unique video content number one" * 10000
-        )  # ~320KB
-        self.unique_content2 = (
-            b"Unique video content number two" * 10000
-        )  # ~320KB
+        self.unique_content1 = b"Unique video content number one" * 10000  # ~320KB
+        self.unique_content2 = b"Unique video content number two" * 10000  # ~320KB
 
     def teardown_method(self):
         """Clean up after each test."""

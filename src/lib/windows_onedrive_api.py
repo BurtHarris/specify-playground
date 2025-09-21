@@ -57,9 +57,7 @@ def detect_cloud_status(file_path: Path) -> CloudFileStatus:
         RuntimeError: If called on non-Windows platform
     """
     if not is_windows_platform():
-        raise RuntimeError(
-            "OneDrive detection only supported on Windows platform"
-        )
+        raise RuntimeError("OneDrive detection only supported on Windows platform")
 
     if not file_path.exists():
         raise OSError(f"File not found: {file_path}")

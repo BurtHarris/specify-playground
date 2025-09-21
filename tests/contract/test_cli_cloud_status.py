@@ -10,6 +10,7 @@ OneDrive Integration MVP - CLI Enhancement
 from typing import TYPE_CHECKING
 
 import pytest
+
 pytest.skip(
     "Skipping cloud-status contract tests while --cloud-status is temporarily removed",
     allow_module_level=True,
@@ -60,9 +61,7 @@ class TestCLICloudStatusContract:
     def test_cli_cloud_status_accepts_cloud_only_value(self):
         """--cloud-status flag must accept 'cloud-only' value."""
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["temp_test", "--cloud-status", "cloud-only"]
-        )
+        result = runner.invoke(cli, ["temp_test", "--cloud-status", "cloud-only"])
 
         # Should not fail due to invalid cloud-status value
         assert (
@@ -87,12 +86,9 @@ class TestCLICloudStatusContract:
         result = runner.invoke(cli, ["temp_test", "--cloud-status", "invalid"])
 
         # Should fail with invalid value error
+        assert result.exit_code != 0, "CLI must reject invalid --cloud-status values"
         assert (
-            result.exit_code != 0
-        ), "CLI must reject invalid --cloud-status values"
-        assert (
-            "Invalid value" in result.output
-            or "invalid" in result.output.lower()
+            "Invalid value" in result.output or "invalid" in result.output.lower()
         ), "CLI must show error for invalid --cloud-status values"
 
     def test_cli_cloud_status_default_behavior(self):
@@ -123,13 +119,9 @@ class TestCLICloudStatusContract:
         runner = CliRunner()
 
         # Test uppercase
-        result_upper = runner.invoke(
-            cli, ["temp_test", "--cloud-status", "LOCAL"]
-        )
+        result_upper = runner.invoke(cli, ["temp_test", "--cloud-status", "LOCAL"])
         # Test mixed case
-        result_mixed = runner.invoke(
-            cli, ["temp_test", "--cloud-status", "Cloud-Only"]
-        )
+        result_mixed = runner.invoke(cli, ["temp_test", "--cloud-status", "Cloud-Only"])
 
         # Should accept case variations or normalize them
         assert (
@@ -149,9 +141,7 @@ class TestCLICloudStatusContract:
             # If short form exists, test it
             short_result = runner.invoke(cli, ["temp_test", "-c", "local"])
             # Should work the same as long form
-            assert (
-                True
-            ), "Short form for cloud-status flag detected and working"
+            assert True, "Short form for cloud-status flag detected and working"
         else:
             # Short form is optional, just verify long form exists
             assert (
@@ -192,19 +182,14 @@ class TestCLICloudStatusContract:
 
         if platform.system() != "Windows":
             runner = CliRunner()
-            result = runner.invoke(
-                cli, ["temp_test", "--cloud-status", "cloud-only"]
-            )
+            result = runner.invoke(cli, ["temp_test", "--cloud-status", "cloud-only"])
 
             # On non-Windows, should warn or handle gracefully
             output_lower = result.output.lower()
             if "warning" in output_lower or "windows" in output_lower:
-                assert (
-                    True
-                ), "CLI shows appropriate warning for non-Windows platforms"
+                assert True, "CLI shows appropriate warning for non-Windows platforms"
             else:
                 # Should still work, just maybe with different behavior
                 assert (
-                    result.exit_code == 0
-                    or "cloud-status" not in result.output
+                    result.exit_code == 0 or "cloud-status" not in result.output
                 ), "CLI must handle non-Windows platforms gracefully"

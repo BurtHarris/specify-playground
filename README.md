@@ -26,7 +26,7 @@ OneDrive detection requires Windows and uses Windows API file attributes for clo
 
 ## Installation
 
-1. Ensure Python 3.11+ is installed
+1. Ensure Python 3.12+ is installed
 2. Clone the repository
 3. Install dependencies: `pip install -r requirements.txt`
 
@@ -46,6 +46,20 @@ python -m src /path/to/videos --recursive
 
 # Non-recursive scan (current directory only)
 python -m src /path/to/videos --no-recursive
+```
+
+### CLI: logging and examples
+
+The CLI exposes a `--log-level` option which controls the logging verbosity for the CLI and any injected components (for example, the scanner and detector). This is useful when debugging or when more/less output is desired.
+
+Examples:
+
+```bash
+# Scan a folder with debug logging enabled
+python -m src /path/to/videos --log-level DEBUG
+
+# Scan and export results to YAML
+python -m src /path/to/videos --export results.yaml --log-level INFO
 ```
 
 ### Cloud Status Filtering

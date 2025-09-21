@@ -267,9 +267,7 @@ class ScanMetadata:
         self.files_hashed += 1
         self.hash_computation_time += hash_time
 
-    def update_duplicate_stats(
-        self, duplicate_size: int, wasted_size: int
-    ) -> None:
+    def update_duplicate_stats(self, duplicate_size: int, wasted_size: int) -> None:
         """
         Update duplicate-related statistics.
 
@@ -294,23 +292,15 @@ class ScanMetadata:
             "total_files_error": self.total_files_error,
             "processing_rate_percent": round(self.processing_rate, 1),
             "error_rate_percent": round(self.error_rate, 1),
-            "total_size_scanned_mb": round(
-                self.total_size_scanned / (1024 * 1024), 2
-            ),
-            "total_size_wasted_mb": round(
-                self.total_size_wasted / (1024 * 1024), 2
-            ),
-            "space_savings_potential_percent": round(
-                self.space_savings_potential, 1
-            ),
+            "total_size_scanned_mb": round(self.total_size_scanned / (1024 * 1024), 2),
+            "total_size_wasted_mb": round(self.total_size_wasted / (1024 * 1024), 2),
+            "space_savings_potential_percent": round(self.space_savings_potential, 1),
             "duplicate_groups_found": self.duplicate_groups_found,
             "potential_match_groups_found": self.potential_match_groups_found,
             "series_groups_found": self.series_groups_found,
             "duration_seconds": self.duration_seconds,
             "files_per_second": round(self.files_per_second or 0, 2),
-            "mb_per_second": round(
-                (self.bytes_per_second or 0) / (1024 * 1024), 2
-            ),
+            "mb_per_second": round((self.bytes_per_second or 0) / (1024 * 1024), 2),
         }
 
     def get_performance_stats(self) -> Dict[str, Any]:
@@ -326,9 +316,7 @@ class ScanMetadata:
             "bytes_per_second": self.bytes_per_second,
             "mb_per_second": (self.bytes_per_second or 0) / (1024 * 1024),
             "average_hash_time_seconds": self.average_hash_time,
-            "total_hash_time_seconds": (
-                self.hash_computation_time.total_seconds()
-            ),
+            "total_hash_time_seconds": (self.hash_computation_time.total_seconds()),
             "hash_percentage_of_total": (
                 (
                     self.hash_computation_time.total_seconds()
@@ -385,9 +373,7 @@ class ScanMetadata:
                 "start_time": self.start_time.isoformat() + "Z"
                 if self.start_time
                 else None,
-                "end_time": self.end_time.isoformat() + "Z"
-                if self.end_time
-                else None,
+                "end_time": self.end_time.isoformat() + "Z" if self.end_time else None,
                 "duration_seconds": self.duration_seconds,
                 "status": "running"
                 if self.is_running
@@ -414,9 +400,7 @@ class ScanMetadata:
             "performance_metrics": self.get_performance_stats(),
             "duplicate_detection": {
                 "duplicate_groups_found": self.duplicate_groups_found,
-                "potential_match_groups_found": (
-                    self.potential_match_groups_found
-                ),
+                "potential_match_groups_found": (self.potential_match_groups_found),
                 "files_hashed": self.files_hashed,
                 "hash_computation_time_seconds": (
                     self.hash_computation_time.total_seconds()

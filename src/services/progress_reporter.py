@@ -44,9 +44,7 @@ class ProgressReporter:
         self._update_terminal_width()
         self._display_progress()
 
-    def update_progress(
-        self, current_item: int, current_file: str = None
-    ) -> None:
+    def update_progress(self, current_item: int, current_file: str = None) -> None:
         """Update progress display."""
         if not self._enabled or not self._is_active:
             return
@@ -92,9 +90,7 @@ class ProgressReporter:
             return
 
         if self._total_items > 0:
-            percentage = min(
-                100.0, (self._current_item / self._total_items) * 100
-            )
+            percentage = min(100.0, (self._current_item / self._total_items) * 100)
         else:
             percentage = 0.0
 
@@ -115,9 +111,7 @@ class ProgressReporter:
         if current_file:
             available_width = self._terminal_width - len(progress_info) - 3
             if available_width > 10:
-                truncated_file = self._truncate_filename(
-                    current_file, available_width
-                )
+                truncated_file = self._truncate_filename(current_file, available_width)
                 progress_info += f" - {truncated_file}"
 
         if len(progress_info) > self._terminal_width:

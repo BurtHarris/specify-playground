@@ -26,9 +26,7 @@ def test_cli_scan_exports_yaml(tmp_path):
     out_file = tmp_path / "scan_out.yaml"
 
     # Invoke the CLI 'scan' command exporting to a temporary file in the test workspace.
-    result = runner.invoke(
-        main, ["scan", str(fixture_dir), "--export", str(out_file)]
-    )
+    result = runner.invoke(main, ["scan", str(fixture_dir), "--export", str(out_file)])
 
     # Contract: CLI should exit with zero and write a YAML file with expected top-level keys.
     assert (

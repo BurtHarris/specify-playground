@@ -134,17 +134,13 @@ class TestDocumentationUpdateContract:
             Path("VERSION.md"),
         ]
 
-        changelog_exists = any(
-            path.exists() for path in possible_changelog_files
-        )
+        changelog_exists = any(path.exists() for path in possible_changelog_files)
 
         if changelog_exists:
             # If changelog exists, it should mention OneDrive feature
             for changelog_path in possible_changelog_files:
                 if changelog_path.exists():
-                    content = changelog_path.read_text(
-                        encoding="utf-8"
-                    ).lower()
+                    content = changelog_path.read_text(encoding="utf-8").lower()
                     assert (
                         "onedrive" in content or "cloud" in content
                     ), f"{changelog_path.name} must mention OneDrive integration feature"
@@ -169,9 +165,7 @@ class TestDocumentationUpdateContract:
             ), "CONTRIBUTING.md must mention Windows testing for OneDrive features"
         else:
             # If CONTRIBUTING.md doesn't exist, note requirement
-            assert (
-                True
-            ), "Windows testing requirement noted for CONTRIBUTING.md"
+            assert True, "Windows testing requirement noted for CONTRIBUTING.md"
 
     def test_technical_documentation_explains_implementation(self):
         """Technical documentation must explain OneDrive detection implementation."""

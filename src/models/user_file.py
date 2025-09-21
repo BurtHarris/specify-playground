@@ -74,9 +74,7 @@ class UserFile:
                 while chunk := f.read(chunk_size):
                     hasher.update(chunk)
         except PermissionError:
-            raise PermissionError(
-                f"Permission denied reading file: {self._path}"
-            )
+            raise PermissionError(f"Permission denied reading file: {self._path}")
         except OSError as e:
             raise OSError(f"Error reading file {self._path}: {e}")
         self._hash = hasher.hexdigest()
@@ -162,9 +160,7 @@ class UserFile:
     @property
     def last_modified(self):
         if self._last_modified is None:
-            self._last_modified = datetime.fromtimestamp(
-                self._path.stat().st_mtime
-            )
+            self._last_modified = datetime.fromtimestamp(self._path.stat().st_mtime)
         return self._last_modified
 
     def to_dict(self) -> dict:

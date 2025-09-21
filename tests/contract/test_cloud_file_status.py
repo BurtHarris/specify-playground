@@ -40,9 +40,7 @@ class TestCloudFileStatusContract:
         assert hasattr(
             CloudFileStatus, "LOCAL"
         ), "CloudFileStatus must have LOCAL value"
-        assert (
-            CloudFileStatus.LOCAL.value == "local"
-        ), "LOCAL value must be 'local'"
+        assert CloudFileStatus.LOCAL.value == "local", "LOCAL value must be 'local'"
 
     @pytest.mark.contract
     def test_cloud_file_status_has_cloud_only_value(self):
@@ -92,22 +90,16 @@ class TestCloudFileStatusContract:
             CloudFileStatus.LOCAL: "local_file",
             CloudFileStatus.CLOUD_ONLY: "cloud_file",
         }
-        assert (
-            len(status_dict) == 2
-        ), "CloudFileStatus values must work as dict keys"
+        assert len(status_dict) == 2, "CloudFileStatus values must work as dict keys"
 
     @pytest.mark.contract
     def test_cloud_file_status_iteration(self):
         """Test: CloudFileStatus enum supports iteration."""
         # Contract: Enum must be iterable
         statuses = list(CloudFileStatus)
-        assert (
-            len(statuses) == 2
-        ), "CloudFileStatus must have exactly 2 values for MVP"
+        assert len(statuses) == 2, "CloudFileStatus must have exactly 2 values for MVP"
         assert CloudFileStatus.LOCAL in statuses, "LOCAL must be in iteration"
-        assert (
-            CloudFileStatus.CLOUD_ONLY in statuses
-        ), "CLOUD_ONLY must be in iteration"
+        assert CloudFileStatus.CLOUD_ONLY in statuses, "CLOUD_ONLY must be in iteration"
 
     @pytest.mark.contract
     def test_cloud_file_status_value_access(self):

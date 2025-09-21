@@ -29,7 +29,9 @@ def test_mixed_size_group_not_marked_as_series(tmp_path):
     detector = DuplicateDetector()
     metadata = Meta()
 
-    duplicates = detector.find_duplicates(files, progress_reporter=None, verbose=False, metadata=metadata)
+    duplicates = detector.find_duplicates(
+        files, progress_reporter=None, verbose=False, metadata=metadata
+    )
 
     # No series groups should be recorded because only one pair matched the
     # sequential heuristic (1 out of 3 pairs -> proportion < 0.6)
@@ -62,7 +64,9 @@ def test_four_sequential_files_marked_as_series(tmp_path):
     detector = DuplicateDetector()
     metadata = Meta()
 
-    duplicates = detector.find_duplicates(files, progress_reporter=None, verbose=False, metadata=metadata)
+    duplicates = detector.find_duplicates(
+        files, progress_reporter=None, verbose=False, metadata=metadata
+    )
 
     # Expect the group to be recorded as a series (proportion of excluded pairs is 1.0)
     assert metadata.series_groups_found >= 1

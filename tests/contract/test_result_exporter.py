@@ -77,9 +77,7 @@ class TestResultExporterContract:
         duplicate_group = DuplicateGroup("hash123", [video1, video2])
 
         # Create potential match group
-        potential_group = PotentialMatchGroup(
-            "similar_name", 0.95, [video3, video4]
-        )
+        potential_group = PotentialMatchGroup("similar_name", 0.95, [video3, video4])
 
         # Create scan result
         metadata = ScanMetadata([Path(self.temp_dir)], recursive=True)
@@ -273,11 +271,7 @@ class TestResultExporterContract:
     def test_export_creates_parent_directories(self):
         """Test: Creates parent directories if they don't exist."""
         output_path = (
-            Path(self.temp_dir)
-            / "deep"
-            / "nested"
-            / "path"
-            / "test_output.yaml"
+            Path(self.temp_dir) / "deep" / "nested" / "path" / "test_output.yaml"
         )
 
         # Contract: MUST create parent directories if they don't exist

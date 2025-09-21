@@ -22,9 +22,7 @@ class TestIntegrationTestSetupContract:
     def test_integration_test_directory_structure(self):
         """Integration test directory must exist with proper structure."""
         integration_dir = Path("tests/integration")
-        assert (
-            integration_dir.exists()
-        ), "tests/integration directory must exist"
+        assert integration_dir.exists(), "tests/integration directory must exist"
 
         # Should have OneDrive-specific integration tests
         expected_test_files = [
@@ -35,8 +33,7 @@ class TestIntegrationTestSetupContract:
 
         # At least one OneDrive integration test should exist (when implemented)
         onedrive_test_exists = any(
-            (integration_dir / test_file).exists()
-            for test_file in expected_test_files
+            (integration_dir / test_file).exists() for test_file in expected_test_files
         )
 
         # This will fail until integration tests are created
@@ -76,9 +73,7 @@ class TestIntegrationTestSetupContract:
             for test_file in test_files:
                 if test_file.exists():
                     content = test_file.read_text(encoding="utf-8").lower()
-                    if "mock" in content and (
-                        "windows" in content or "api" in content
-                    ):
+                    if "mock" in content and ("windows" in content or "api" in content):
                         mock_api_tests_exist = True
                         break
 

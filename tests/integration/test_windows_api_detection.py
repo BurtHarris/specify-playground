@@ -29,9 +29,7 @@ class TestWindowsAPIDetectionIntegration:
     def test_platform_detection(self):
         """Test that platform detection works correctly."""
         # Should detect Windows correctly
-        assert is_windows_platform() == (
-            platform.system().lower() == "windows"
-        )
+        assert is_windows_platform() == (platform.system().lower() == "windows")
         assert is_onedrive_supported() == is_windows_platform()
 
     def test_platform_info_structure(self):
@@ -117,14 +115,10 @@ class TestWindowsAPIDetectionIntegration:
         test_file.write_bytes(b"test content")
 
         # Mock the Windows API to return failure
-        with patch(
-            "ctypes.windll.kernel32.GetFileAttributesW"
-        ) as mock_get_attrs:
+        with patch("ctypes.windll.kernel32.GetFileAttributesW") as mock_get_attrs:
             mock_get_attrs.return_value = 0xFFFFFFFF  # INVALID_FILE_ATTRIBUTES
 
-            with patch(
-                "ctypes.windll.kernel32.GetLastError"
-            ) as mock_get_error:
+            with patch("ctypes.windll.kernel32.GetLastError") as mock_get_error:
                 mock_get_error.return_value = 2  # ERROR_FILE_NOT_FOUND
 
                 with pytest.raises(WindowsOneDriveAPIError):
@@ -143,9 +137,7 @@ class TestWindowsAPIDetectionIntegration:
         # For now, we'll mock the API response
         test_file = Path("cloud_only_test.mp4")
 
-        with patch(
-            "ctypes.windll.kernel32.GetFileAttributesW"
-        ) as mock_get_attrs:
+        with patch("ctypes.windll.kernel32.GetFileAttributesW") as mock_get_attrs:
             with patch.object(Path, "exists", return_value=True):
                 # Mock cloud-only file attributes
                 mock_get_attrs.return_value = (
@@ -162,14 +154,10 @@ class TestWindowsAPIDetectionIntegration:
         """Test detection of local files."""
         test_file = Path("local_test.mp4")
 
-        with patch(
-            "ctypes.windll.kernel32.GetFileAttributesW"
-        ) as mock_get_attrs:
+        with patch("ctypes.windll.kernel32.GetFileAttributesW") as mock_get_attrs:
             with patch.object(Path, "exists", return_value=True):
                 # Mock local file attributes (no recall-on-data-access)
-                mock_get_attrs.return_value = (
-                    0x00000020  # FILE_ATTRIBUTE_ARCHIVE
-                )
+                mock_get_attrs.return_value = 0x00000020  # FILE_ATTRIBUTE_ARCHIVE
 
                 status = detect_cloud_status(test_file)
                 assert status == CloudFileStatus.LOCAL

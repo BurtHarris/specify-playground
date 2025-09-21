@@ -130,10 +130,7 @@ class TestMixedDirectoryScanIntegration:
                 # Check cloud status for each file
                 for video_file in video_files:
                     if video_file.path.name == "cloud_video.mkv":
-                        assert (
-                            video_file.cloud_status
-                            == CloudFileStatus.CLOUD_ONLY
-                        )
+                        assert video_file.cloud_status == CloudFileStatus.CLOUD_ONLY
                         assert video_file.is_cloud_only == True
                         assert video_file.is_local == False
                     else:
@@ -167,9 +164,7 @@ class TestMixedDirectoryScanIntegration:
 
                 # Separate local and cloud-only files
                 local_files = [vf for vf in video_files if vf.is_local]
-                cloud_only_files = [
-                    vf for vf in video_files if vf.is_cloud_only
-                ]
+                cloud_only_files = [vf for vf in video_files if vf.is_cloud_only]
 
                 assert len(local_files) == 2  # video_0 and video_2
                 assert len(cloud_only_files) == 1  # video_1

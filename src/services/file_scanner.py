@@ -1,15 +1,16 @@
 from pathlib import Path
 from typing import List, Optional, Iterator
 import fnmatch
-import logging
 import os
 
-from src.services.file_hasher import stream_hash
 from src.services.file_database import get_database
 from src.models.file import UserFile
 
-
-logger = logging.getLogger(__name__)
+from src.lib.interfaces import (
+    FileDatabaseProtocol,
+    HasherProtocol,
+    ProgressReporterProtocol,
+)
 
 
 class DirectoryNotFoundError(Exception):
@@ -38,8 +39,30 @@ class FileScanner:
         patterns: Optional[List[str]] = None,
         recursive: bool = True,
         chunk_size: int = 1024 * 1024,
+        db=None,
+        hasher=None,
+        logger=None,
     ):
-        self.db = get_database(db_path)
+        # Allow injection of database, hasher, and logger for testing and IoC.
+        # If not provided, fall back to module-level factories for backward
+        # compatibility.
+        self.db: FileDatabaseProtocol = db if db is not None else get_database(db_path)
+        self._hasher: HasherProtocol = hasher
+        # logger may be injected (container.logger()) for IoC; if not
+        # provided, attempt to obtain one from the Container so module-level
+        # logging is centralized. Fall back to the stdlib logger if the
+        # container is unavailable (preserves previous behavior).
+        if logger is not None:
+            self.logger = logger
+        else:
+            try:
+                from src.lib.container import Container
+
+                self.logger = Container().logger()
+            except Exception:
+                import logging as _logging
+
+                self.logger = _logging.getLogger(__name__)
         self.patterns = patterns or ["*"]
         self.recursive = recursive
         self.chunk_size = chunk_size
@@ -61,9 +84,7 @@ class FileScanner:
         directory = Path(directory)
         try:
             if not directory.exists() or not directory.is_dir():
-                raise DirectoryNotFoundError(
-                    f"Directory not found: {directory}"
-                )
+                raise DirectoryNotFoundError(f"Directory not found: {directory}")
         except Exception:
             raise DirectoryNotFoundError(f"Directory not found: {directory}")
 
@@ -89,9 +110,7 @@ class FileScanner:
         # If a progress_reporter was provided, initialize it with total files
         try:
             total_files = len(files)
-            if progress_reporter and hasattr(
-                progress_reporter, "start_progress"
-            ):
+            if progress_reporter and hasattr(progress_reporter, "start_progress"):
                 try:
                     progress_reporter.start_progress(total_files, "Scanning")
                 except Exception:
@@ -110,17 +129,13 @@ class FileScanner:
                         progress_reporter, "update_progress"
                     ):
                         try:
-                            progress_reporter.update_progress(
-                                idx, str(entry.name)
-                            )
+                            progress_reporter.update_progress(idx, str(entry.name))
                         except Exception:
                             pass
                     continue
 
                 # Emit progress before yielding
-                if progress_reporter and hasattr(
-                    progress_reporter, "update_progress"
-                ):
+                if progress_reporter and hasattr(progress_reporter, "update_progress"):
                     try:
                         progress_reporter.update_progress(idx, str(entry.name))
                     except Exception:
@@ -173,7 +188,7 @@ class FileScanner:
         for p in paths_or_directory:
             p = Path(p)
             if not p.exists():
-                logger.debug("Path does not exist, skipping: %s", p)
+                self.logger.debug("Path does not exist, skipping: %s", p)
                 continue
             files = (
                 [p]
@@ -191,7 +206,7 @@ class FileScanner:
                 try:
                     st = f.stat()
                 except (OSError, PermissionError) as e:
-                    logger.warning("Could not stat file %s: %s", f, e)
+                    self.logger.warning("Could not stat file %s: %s", f, e)
                     continue
 
                 size = int(st.st_size)
@@ -207,13 +222,22 @@ class FileScanner:
                     hash_value = cached
                 else:
                     try:
-                        hash_value = stream_hash(f, chunk_size=self.chunk_size)
+                        # Use injected hasher if provided, otherwise default
+                        # to the stream_hash implementation.
+                        hasher_fn = (
+                            self._hasher
+                            if self._hasher is not None
+                            else __import__(
+                                "src.services.file_hasher", fromlist=["stream_hash"]
+                            ).stream_hash
+                        )
+                        hash_value = hasher_fn(f, chunk_size=self.chunk_size)
                         try:
                             self.db.set_cached_hash(f, size, mtime, hash_value)
                         except Exception:
-                            logger.debug("Failed to write cache for %s", f)
+                            self.logger.debug("Failed to write cache for %s", f)
                     except Exception as e:
-                        logger.warning("Failed to hash file %s: %s", f, e)
+                        self.logger.warning("Failed to hash file %s: %s", f, e)
                         continue
 
                 results.append(
@@ -285,11 +309,7 @@ class FileScanner:
         return False
 
     def get_supported_extensions(self):
-        return (
-            set(self.SUPPORTED_EXTENSIONS)
-            if self.SUPPORTED_EXTENSIONS
-            else set()
-        )
+        return set(self.SUPPORTED_EXTENSIONS) if self.SUPPORTED_EXTENSIONS else set()
 
     def is_supported_extension(self, extension: str) -> bool:
         if not self.SUPPORTED_EXTENSIONS:

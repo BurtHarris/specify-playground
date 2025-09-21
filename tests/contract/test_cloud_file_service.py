@@ -34,9 +34,7 @@ class TestCloudFileServiceContract:
 
     def test_cloud_file_service_class_exists(self):
         """CloudFileService class must exist."""
-        assert (
-            CloudFileService is not None
-        ), "CloudFileService class must be defined"
+        assert CloudFileService is not None, "CloudFileService class must be defined"
         assert hasattr(
             CloudFileService, "__init__"
         ), "CloudFileService must be instantiable"
@@ -57,9 +55,7 @@ class TestCloudFileServiceContract:
         """CloudFileService must be instantiable without arguments."""
         try:
             service = CloudFileService()
-            assert (
-                service is not None
-            ), "CloudFileService instance must not be None"
+            assert service is not None, "CloudFileService instance must not be None"
         except Exception as e:
             pytest.fail(f"CloudFileService instantiation failed: {e}")
 
@@ -103,9 +99,7 @@ class TestCloudFileServiceContract:
         service = CloudFileService()
         result = service.is_windows_only()
 
-        assert isinstance(
-            result, bool
-        ), "is_windows_only must return boolean value"
+        assert isinstance(result, bool), "is_windows_only must return boolean value"
 
     def test_is_windows_only_returns_true_on_windows(self):
         """is_windows_only must return True on Windows platform."""
@@ -131,9 +125,7 @@ class TestCloudFileServiceContract:
                 CloudFileStatus, result.name
             ), "get_file_status must return valid CloudFileStatus for non-existent files"
         except FileNotFoundError:
-            pytest.fail(
-                "get_file_status must handle non-existent files gracefully"
-            )
+            pytest.fail("get_file_status must handle non-existent files gracefully")
 
     def test_get_file_status_handles_permission_errors(self):
         """get_file_status must handle permission errors gracefully."""
@@ -150,9 +142,7 @@ class TestCloudFileServiceContract:
                     CloudFileStatus, result.name
                 ), "get_file_status must return valid CloudFileStatus when handling permission errors"
         except PermissionError:
-            pytest.fail(
-                "get_file_status must handle permission errors gracefully"
-            )
+            pytest.fail("get_file_status must handle permission errors gracefully")
 
     def test_cloud_file_service_thread_safety_design(self):
         """CloudFileService must be designed for thread safety."""

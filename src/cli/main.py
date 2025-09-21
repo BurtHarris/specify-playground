@@ -58,9 +58,7 @@ class CommandFirstGroup(click.Group):
             # 'scan' subcommand exists, treat this as implicit 'scan' so
             # programmatic invocations (CliRunner) work without the shim.
             try:
-                if "scan" in self.commands and not potential_str.startswith(
-                    "-"
-                ):
+                if "scan" in self.commands and not potential_str.startswith("-"):
                     from pathlib import Path as _Path
 
                     p = _Path(potential)
@@ -90,9 +88,7 @@ def check_python_version():
     """Check Python version requirement (3.12+) before proceeding."""
     if sys.version_info < (3, 12):
         click.echo("Error: Python 3.12 or higher is required.", err=True)
-        click.echo(
-            f"Current version: Python {sys.version.split()[0]}", err=True
-        )
+        click.echo(f"Current version: Python {sys.version.split()[0]}", err=True)
         click.echo("Please upgrade Python to continue.", err=True)
         sys.exit(3)
 
@@ -109,6 +105,7 @@ from ..models.scan_result import ScanResult
 from ..models.scan_metadata import ScanMetadata
 from ..lib.config_manager import ConfigManager
 from .config_commands import config
+from ..lib.container import Container
 
 
 # Version constant
@@ -168,8 +165,7 @@ def main(ctx: click.Context):
         import sys as _sys
 
         raw_help = any(
-            a in (_sys.argv[1:] if len(_sys.argv) > 1 else [])
-            for a in ("--help", "-h")
+            a in (_sys.argv[1:] if len(_sys.argv) > 1 else []) for a in ("--help", "-h")
         )
         if ("--help" in argv or "-h" in argv) or raw_help:
             try:
@@ -179,9 +175,7 @@ def main(ctx: click.Context):
                         # Use the command's get_help API to render help text with
                         # the current top-level context as parent so option
                         # formatting and help text include parameter descriptions.
-                        scan_ctx = click.Context(
-                            scan_cmd, info_name="scan", parent=ctx
-                        )
+                        scan_ctx = click.Context(scan_cmd, info_name="scan", parent=ctx)
                         help_text = scan_cmd.get_help(scan_ctx)
                         click.echo("\n" + help_text, color=ctx.color)
                     except Exception:
@@ -251,6 +245,14 @@ def main(ctx: click.Context):
     default=None,
     help="Colorized output (default: auto-detect)",
 )
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    default=None,
+    help="Set logging level for the CLI and injected components (e.g. DEBUG)",
+)
 def scan(
     directory: Path,
     db_path: Optional[Path],
@@ -261,10 +263,18 @@ def scan(
     verbose: Optional[bool],
     progress: Optional[bool],
     color: Optional[bool],
+    log_level: Optional[str],
 ):
     """Scan DIRECTORY for duplicate files of any type."""
-    # Load configuration for defaults
-    config_manager = ConfigManager()
+    # Load configuration for defaults via IoC container when available so
+    # tests can override and share a single instance. Fall back to direct
+    # construction if the container is unavailable.
+    try:
+        container = Container()
+        config_manager = container.config_manager()
+    except Exception:
+        config_manager = ConfigManager()
+
     try:
         config_settings = config_manager.load_config()
     except Exception as e:
@@ -300,6 +310,7 @@ def scan(
         progress,
         color,
         config_manager,
+        log_level,
     )
 
 
@@ -314,14 +325,13 @@ def _run_scan(
     progress: Optional[bool],
     color: Optional[bool],
     config_manager: ConfigManager,
+    log_level: Optional[str] = None,
 ) -> None:
     """Execute the universal file duplicate scan."""
     try:
         # Validate threshold range
         if not 0.0 <= threshold <= 1.0:
-            click.echo(
-                "Error: Threshold must be between 0.0 and 1.0", err=True
-            )
+            click.echo("Error: Threshold must be between 0.0 and 1.0", err=True)
             sys.exit(1)
 
         # Set up progress reporting
@@ -333,11 +343,53 @@ def _run_scan(
             show_progress = progress
 
         # Initialize services
-        progress_reporter = ProgressReporter(enabled=show_progress)
+        # Use dependency-injector container to create collaborators so they
+        # can be swapped or configured centrally (IoC). The container is
+        # lightweight and provides a ProgressReporter factory.
+        container = Container()
+        # If CLI provided a log level, propagate it into the container
+        # configuration before the logger singleton is created so the
+        # container-provided logger and injected loggers honor the setting.
+        if log_level:
+            try:
+                # Use providers.Configuration API to set the nested value
+                container.config.logger.level.from_value(log_level.upper())
+            except Exception:
+                # Non-fatal if configuration wiring isn't present
+                pass
+        progress_reporter = container.progress_reporter_factory(enabled=show_progress)
+        # Build DB and hasher from the container when available so tests and
+        # callers can provide alternate implementations. `database` provider
+        # accepts a db_path and returns an instance; `hasher` is a callable.
+        try:
+            db_instance = (
+                container.database(db_path)
+                if db_path is not None
+                else container.database()
+            )
+        except Exception:
+            # Fall back to default behavior if container factory fails
+            db_instance = None
+
+        try:
+            hasher_fn = container.hasher()
+        except Exception:
+            hasher_fn = None
+
         scanner = FileScanner(
-            db_path=db_path, patterns=patterns, recursive=recursive
+            db_path=db_path,
+            patterns=patterns,
+            recursive=recursive,
+            db=db_instance,
+            hasher=hasher_fn,
+            logger=container.logger(),
         )
-        detector = DuplicateDetector()
+
+        # Construct DuplicateDetector with injected ProgressReporter so the
+        # detector can use a shared reporter instance without callers needing
+        # to pass it on every call. Backwards-compatible: per-call reporter
+        # argument still takes precedence.
+        detector = DuplicateDetector(progress_reporter=progress_reporter)
         exporter = ResultExporter()
 
         # Start scan
@@ -384,14 +436,10 @@ def _run_scan(
         try:
             duplicates_found = len(scan_result.duplicate_groups)
             file_count = scan_result.metadata.total_files_found
-            config_manager.add_scan_history(
-                directory, file_count, duplicates_found
-            )
+            config_manager.add_scan_history(directory, file_count, duplicates_found)
         except Exception as e:
             if verbose:
-                click.echo(
-                    f"Warning: Could not update scan history: {e}", err=True
-                )
+                click.echo(f"Warning: Could not update scan history: {e}", err=True)
 
         # Exit with appropriate code
         if scan_result.metadata.errors:
@@ -401,9 +449,7 @@ def _run_scan(
                 err=True,
             )
             if verbose:
-                for error in scan_result.metadata.errors[
-                    :5
-                ]:  # Show first 5 errors
+                for error in scan_result.metadata.errors[:5]:  # Show first 5 errors
                     click.echo(
                         f"  Error: {error.get('error', 'Unknown error')}",
                         err=True,
@@ -527,9 +573,7 @@ def _perform_scan(
 
         # Find potential matches
         if verbose:
-            click.echo(
-                f"Finding potential matches (threshold: {threshold})..."
-            )
+            click.echo(f"Finding potential matches (threshold: {threshold})...")
 
         potential_matches = detector.find_potential_matches(
             files, threshold=threshold, verbose=verbose
@@ -595,20 +639,14 @@ def _display_text_results(
     # Summary header
     if verbose:
         click.echo(f"\n{header('=== Scan Results ===')}")
-        click.echo(
-            f"Scanned: {info(', '.join(str(p) for p in metadata.scan_paths))}"
-        )
+        click.echo(f"Scanned: {info(', '.join(str(p) for p in metadata.scan_paths))}")
         click.echo(f"Files found: {info(str(metadata.total_files_found))}")
 
         if metadata.end_time and metadata.start_time:
-            duration = (
-                metadata.end_time - metadata.start_time
-            ).total_seconds()
+            duration = (metadata.end_time - metadata.start_time).total_seconds()
             click.echo(f"Scan duration: {info(f'{duration:.2f} seconds')}")
 
-        click.echo(
-            f"Total size: {info(format_size(metadata.total_size_scanned))}"
-        )
+        click.echo(f"Total size: {info(format_size(metadata.total_size_scanned))}")
 
         # Duplicate groups (verbose mode)
         if scan_result.duplicate_groups:
@@ -619,18 +657,12 @@ def _display_text_results(
             total_wasted = sum(
                 group.wasted_space for group in scan_result.duplicate_groups
             )
-            click.echo(
-                f"Total wasted space: {warning(format_size(total_wasted))}"
-            )
+            click.echo(f"Total wasted space: {warning(format_size(total_wasted))}")
 
             for i, group in enumerate(scan_result.duplicate_groups, 1):
-                click.echo(
-                    f"\n{warning(f'Group {i}')}: {len(group.files)} files"
-                )
+                click.echo(f"\n{warning(f'Group {i}')}: {len(group.files)} files")
                 click.echo(f"  Size: {format_size(group.file_size)} each")
-                click.echo(
-                    f"  Wasted: {warning(format_size(group.wasted_space))}"
-                )
+                click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
 
                 for file in group.files:
                     click.echo(f"    {get_relative_path(file.path)}")
@@ -656,16 +688,12 @@ def _display_text_results(
             click.echo(f"\n{success('No potential matches found.')}")
     else:
         # Quiet mode - minimal output
-        click.echo(
-            f"Scanned: {', '.join(str(p) for p in metadata.scan_paths)}"
-        )
+        click.echo(f"Scanned: {', '.join(str(p) for p in metadata.scan_paths)}")
         click.echo(f"Files found: {metadata.total_files_found}")
 
         # Just show count of duplicates/matches in quiet mode
         if scan_result.duplicate_groups:
-            click.echo(
-                f"Duplicate groups found: {len(scan_result.duplicate_groups)}"
-            )
+            click.echo(f"Duplicate groups found: {len(scan_result.duplicate_groups)}")
         else:
             click.echo("No duplicate groups found.")
 

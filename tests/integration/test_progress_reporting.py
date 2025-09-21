@@ -85,9 +85,7 @@ class TestProgressReportingIntegration:
         # Add some larger files for more realistic progress
         for i in range(5):
             filename = f"large_video_{i}.mkv"
-            content = (
-                f"Large video content {i}".encode() * 10000
-            )  # ~130KB each
+            content = f"Large video content {i}".encode() * 10000  # ~130KB each
             video_files.append((filename, content))
 
         # Create files in subdirectories for recursive testing
@@ -127,18 +125,14 @@ class TestProgressReportingIntegration:
             "processing",
         ]
 
-        has_progress = any(
-            indicator in output for indicator in progress_indicators
-        )
+        has_progress = any(indicator in output for indicator in progress_indicators)
         assert has_progress, "Should show progress indicators during scan"
 
     @pytest.mark.integration
     def test_progress_reporting_shows_file_counts(self):
         """Test: Progress reporting shows current and total file counts."""
         # Integration test: Progress with file count information
-        result = self.cli_runner.invoke(
-            main, ["--progress", str(self.temp_dir)]
-        )
+        result = self.cli_runner.invoke(main, ["--progress", str(self.temp_dir)])
 
         # Should show file counting progress
         output = result.output
@@ -151,18 +145,14 @@ class TestProgressReportingIntegration:
             "found",
         ]
 
-        has_counts = any(
-            pattern in output.lower() for pattern in count_patterns
-        )
+        has_counts = any(pattern in output.lower() for pattern in count_patterns)
         assert has_counts, "Should show file count information"
 
     @pytest.mark.integration
     def test_progress_reporting_percentage_updates(self):
         """Test: Progress reporting shows percentage completion."""
         # Integration test: Progress with percentage indicators
-        result = self.cli_runner.invoke(
-            main, ["--progress", str(self.temp_dir)]
-        )
+        result = self.cli_runner.invoke(main, ["--progress", str(self.temp_dir)])
 
         output = result.output
 
@@ -222,9 +212,7 @@ class TestProgressReportingIntegration:
     def test_progress_reporting_no_progress_option(self):
         """Test: --no-progress option disables progress reporting."""
         # Integration test: Disabled progress reporting
-        result = self.cli_runner.invoke(
-            main, ["--no-progress", str(self.temp_dir)]
-        )
+        result = self.cli_runner.invoke(main, ["--no-progress", str(self.temp_dir)])
 
         output = result.output
 
@@ -264,9 +252,7 @@ class TestProgressReportingIntegration:
     def test_progress_reporting_during_hash_computation(self):
         """Test: Progress reporting during hash computation phase."""
         # Create duplicate files to trigger hash computation
-        duplicate_content = (
-            b"Duplicate content for hash testing" * 5000
-        )  # ~200KB
+        duplicate_content = b"Duplicate content for hash testing" * 5000  # ~200KB
 
         duplicate_files = [
             "duplicate1.mp4",
@@ -299,9 +285,7 @@ class TestProgressReportingIntegration:
             "progress",
         ]
 
-        has_hash_progress = any(
-            indicator in output for indicator in hash_indicators
-        )
+        has_hash_progress = any(indicator in output for indicator in hash_indicators)
         assert (
             has_hash_progress
         ), f"Should show progress during processing. Got: {repr(output)}"
@@ -335,9 +319,7 @@ class TestProgressReportingIntegration:
     def test_progress_reporting_estimated_time_remaining(self):
         """Test: Progress reporting shows estimated time remaining."""
         # Integration test: Progress with time estimation
-        result = self.cli_runner.invoke(
-            main, ["--progress", str(self.temp_dir)]
-        )
+        result = self.cli_runner.invoke(main, ["--progress", str(self.temp_dir)])
 
         output = result.output.lower()
 
@@ -351,9 +333,7 @@ class TestProgressReportingIntegration:
             "minutes",
         ]
 
-        has_time_info = any(
-            indicator in output for indicator in time_indicators
-        )
+        has_time_info = any(indicator in output for indicator in time_indicators)
 
         # For small datasets, time estimation might not be shown
         # So we just verify that progress completes successfully
@@ -375,9 +355,7 @@ class TestProgressReportingIntegration:
                 # by creating a file in a non-existent subdirectory structure
                 import subprocess
 
-                subprocess.run(
-                    ["attrib", "+R", str(protected_file)], check=False
-                )
+                subprocess.run(["attrib", "+R", str(protected_file)], check=False)
             else:  # Unix-like
                 protected_file.chmod(0o000)
         except Exception:
@@ -408,9 +386,7 @@ class TestProgressReportingIntegration:
 
             # Progress should continue despite errors
             progress_indicators = ["progress", "scanning", "complete"]
-            has_progress = any(
-                indicator in output for indicator in progress_indicators
-            )
+            has_progress = any(indicator in output for indicator in progress_indicators)
 
             # The test passes if either:
             # 1. We have both error handling and progress (ideal case)
@@ -434,9 +410,7 @@ class TestProgressReportingIntegration:
             # Restore permissions for cleanup
             try:
                 if os.name == "nt":
-                    subprocess.run(
-                        ["attrib", "-R", str(protected_file)], check=False
-                    )
+                    subprocess.run(["attrib", "-R", str(protected_file)], check=False)
                 else:
                     protected_file.chmod(0o644)
             except Exception:
@@ -446,9 +420,7 @@ class TestProgressReportingIntegration:
     def test_progress_reporting_completion_summary(self):
         """Test: Progress reporting shows completion summary."""
         # Integration test: Progress with completion summary
-        result = self.cli_runner.invoke(
-            main, ["--progress", str(self.temp_dir)]
-        )
+        result = self.cli_runner.invoke(main, ["--progress", str(self.temp_dir)])
 
         assert result.exit_code == 0
 
@@ -464,9 +436,7 @@ class TestProgressReportingIntegration:
             "found",
         ]
 
-        has_completion = any(
-            indicator in output for indicator in completion_indicators
-        )
+        has_completion = any(indicator in output for indicator in completion_indicators)
         assert has_completion, "Should show completion summary"
 
     @pytest.mark.integration
@@ -475,34 +445,26 @@ class TestProgressReportingIntegration:
         # Create more files for performance testing
         for i in range(50):  # Additional files
             filename = f"perf_test_{i:03d}.mp4"
-            content = (
-                f"Performance test content {i}".encode() * 2000
-            )  # ~26KB each
+            content = f"Performance test content {i}".encode() * 2000  # ~26KB each
             file_path = Path(self.temp_dir) / filename
             with open(file_path, "wb") as f:
                 f.write(content)
 
         # Integration test: Progress with larger dataset
         start_time = time.time()
-        result = self.cli_runner.invoke(
-            main, ["--progress", str(self.temp_dir)]
-        )
+        result = self.cli_runner.invoke(main, ["--progress", str(self.temp_dir)])
         duration = time.time() - start_time
 
         # Should complete successfully
         assert result.exit_code == 0
 
         # Should complete in reasonable time
-        assert (
-            duration < 60.0
-        ), f"Progress reporting took too long: {duration} seconds"
+        assert duration < 60.0, f"Progress reporting took too long: {duration} seconds"
 
         # Should show progress for larger dataset
         output = result.output.lower()
         progress_indicators = ["progress", "files", "scanning"]
-        has_progress = any(
-            indicator in output for indicator in progress_indicators
-        )
+        has_progress = any(indicator in output for indicator in progress_indicators)
         assert has_progress, "Should show progress for large dataset"
 
     @pytest.mark.integration

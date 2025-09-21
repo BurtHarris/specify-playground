@@ -41,9 +41,7 @@ class TestConfigCLI:
         with patch.object(
             ConfigManager, "_get_config_path", return_value=self.config_path
         ):
-            result = self.runner.invoke(
-                main, ["config", "show", "--format", "yaml"]
-            )
+            result = self.runner.invoke(main, ["config", "show", "--format", "yaml"])
 
             assert result.exit_code == 0
             assert "fuzzy_threshold: 0.8" in result.output
@@ -66,9 +64,7 @@ class TestConfigCLI:
             assert "Fuzzy threshold: 0.9" in result.output
 
             # Test setting boolean value
-            result = self.runner.invoke(
-                main, ["config", "set", "verbose_mode", "true"]
-            )
+            result = self.runner.invoke(main, ["config", "set", "verbose_mode", "true"])
             assert result.exit_code == 0
             assert "Set verbose_mode = True" in result.output
 
@@ -77,9 +73,7 @@ class TestConfigCLI:
         with patch.object(
             ConfigManager, "_get_config_path", return_value=self.config_path
         ):
-            result = self.runner.invoke(
-                main, ["config", "set", "invalid_key", "value"]
-            )
+            result = self.runner.invoke(main, ["config", "set", "invalid_key", "value"])
 
             assert result.exit_code in [1, 2]
             assert "Invalid configuration key 'invalid_key'" in result.output
@@ -175,9 +169,7 @@ class TestConfigCLI:
             for i in range(5):
                 config_manager.add_scan_history(Path(f"/test/dir{i}"), i, 0)
 
-            result = self.runner.invoke(
-                main, ["config", "history", "--limit", "2"]
-            )
+            result = self.runner.invoke(main, ["config", "history", "--limit", "2"])
 
             assert result.exit_code == 0
             assert "/test/dir4" in result.output  # Most recent
@@ -195,9 +187,7 @@ class TestConfigCLI:
             config_manager.add_scan_history(Path("/test/dir"), 10, 2)
 
             # Clear it with confirmation
-            result = self.runner.invoke(
-                main, ["config", "clear-history"], input="y\n"
-            )
+            result = self.runner.invoke(main, ["config", "clear-history"], input="y\n")
 
             assert result.exit_code == 0
             assert "Scan history cleared." in result.output
@@ -216,9 +206,7 @@ class TestConfigCLI:
             config_manager.add_scan_history(Path("/test/dir"), 10, 2)
 
             # Cancel clearing
-            result = self.runner.invoke(
-                main, ["config", "clear-history"], input="n\n"
-            )
+            result = self.runner.invoke(main, ["config", "clear-history"], input="n\n")
 
             assert result.exit_code == 1  # Aborted
 
@@ -232,9 +220,7 @@ class TestConfigCLI:
             ConfigManager, "_get_config_path", return_value=self.config_path
         ):
             # Modify configuration
-            self.runner.invoke(
-                main, ["config", "set", "fuzzy_threshold", "0.9"]
-            )
+            self.runner.invoke(main, ["config", "set", "fuzzy_threshold", "0.9"])
 
             # Reset with confirmation
             result = self.runner.invoke(main, ["config", "reset"], input="y\n")
@@ -252,9 +238,7 @@ class TestConfigCLI:
             ConfigManager, "_get_config_path", return_value=self.config_path
         ):
             # Modify configuration
-            self.runner.invoke(
-                main, ["config", "set", "fuzzy_threshold", "0.9"]
-            )
+            self.runner.invoke(main, ["config", "set", "fuzzy_threshold", "0.9"])
 
             # Cancel reset
             result = self.runner.invoke(main, ["config", "reset"], input="n\n")
@@ -280,12 +264,8 @@ class TestConfigCLI:
                 return_value=self.config_path,
             ):
                 # Set custom config values
-                self.runner.invoke(
-                    main, ["config", "set", "fuzzy_threshold", "0.95"]
-                )
-                self.runner.invoke(
-                    main, ["config", "set", "verbose_mode", "true"]
-                )
+                self.runner.invoke(main, ["config", "set", "fuzzy_threshold", "0.95"])
+                self.runner.invoke(main, ["config", "set", "verbose_mode", "true"])
 
                 # Run scan (should use config defaults)
                 result = self.runner.invoke(main, ["scan", test_dir])
@@ -311,14 +291,10 @@ class TestConfigCLI:
                 return_value=self.config_path,
             ):
                 # Set config to verbose=true
-                self.runner.invoke(
-                    main, ["config", "set", "verbose_mode", "true"]
-                )
+                self.runner.invoke(main, ["config", "set", "verbose_mode", "true"])
 
                 # Run scan with --quiet (should override config)
-                result = self.runner.invoke(
-                    main, ["scan", test_dir, "--quiet"]
-                )
+                result = self.runner.invoke(main, ["scan", test_dir, "--quiet"])
 
                 assert result.exit_code == 0
                 # Should not have verbose output despite config setting

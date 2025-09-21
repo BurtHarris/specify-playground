@@ -201,9 +201,7 @@ class TestDuplicateDetectorContract:
                 if expected_duplicates.issubset(group_paths):
                     found_duplicate_group = True
 
-        assert (
-            found_duplicate_group
-        ), "Should find group containing our duplicate files"
+        assert found_duplicate_group, "Should find group containing our duplicate files"
 
     @pytest.mark.contract
     def test_find_duplicates_returns_groups_with_minimum_two_files(self):
@@ -233,9 +231,7 @@ class TestDuplicateDetectorContract:
         for group1, group2 in zip(result1, result2):
             paths1 = [f.path for f in group1.files]
             paths2 = [f.path for f in group2.files]
-            assert (
-                paths1 == paths2
-            ), "File order within groups should be consistent"
+            assert paths1 == paths2, "File order within groups should be consistent"
 
     @pytest.mark.contract
     def test_find_potential_matches_returns_potential_match_groups(self):
@@ -261,15 +257,11 @@ class TestDuplicateDetectorContract:
         found_similar_match = False
 
         for group in result:
-            group_names = {
-                f.path.stem for f in group.files
-            }  # stem excludes extension
+            group_names = {f.path.stem for f in group.files}  # stem excludes extension
             if "movie_title" in group_names and len(group.files) >= 2:
                 found_similar_match = True
 
-        assert (
-            found_similar_match
-        ), "Should find potential match for similar filenames"
+        assert found_similar_match, "Should find potential match for similar filenames"
 
     @pytest.mark.contract
     def test_find_potential_matches_ignores_file_extensions(self):
@@ -369,9 +361,7 @@ class TestDuplicateDetectorContract:
 
         # Contract: MUST handle Unicode filenames correctly
         try:
-            result = self.detector.find_potential_matches(
-                unicode_files, threshold=0.5
-            )
+            result = self.detector.find_potential_matches(unicode_files, threshold=0.5)
             # Should not raise exceptions with Unicode filenames
             assert isinstance(result, list)
         except UnicodeError:
@@ -386,21 +376,14 @@ class TestDuplicateDetectorContract:
         result_default = self.detector.find_potential_matches(files)
 
         # Call with explicit 0.8 threshold
-        result_explicit = self.detector.find_potential_matches(
-            files, threshold=0.8
-        )
+        result_explicit = self.detector.find_potential_matches(files, threshold=0.8)
 
         # Contract: Default threshold should be 0.8
         assert len(result_default) == len(result_explicit)
 
         # Both results should be equivalent
-        for group_default, group_explicit in zip(
-            result_default, result_explicit
-        ):
-            assert (
-                group_default.similarity_score
-                == group_explicit.similarity_score
-            )
+        for group_default, group_explicit in zip(result_default, result_explicit):
+            assert group_default.similarity_score == group_explicit.similarity_score
 
     @pytest.mark.contract
     def test_find_duplicates_handles_empty_file_list(self):

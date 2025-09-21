@@ -2,46 +2,12 @@
 """
 Unit tests for FileScanner service.
 
-Tests the FileScanner service including directory scanning,
-fi    @patch('os.access')
-    @patch('pathlib.Path.exis    @patch('os.access')
-    @patch('pathlib.Path.exists')
-      @patch('os.access')
-       def test_scan_directory_stat_erro    def test_scan_directory_z    def test_scan_directory_mixed_file_types(self, mock_is_file, mock_stat, mock_iterdir, 
-                                             mock_is_dir, mock_exists, mock_access, scanner):o_size_files(self, mock_is_file, mock_stat, mock_iterdir, 
-                                            mock_is_dir, mock_exists, mock_access, scanner):self, mock_is_file, mock_stat, mock_iterdir, 
-                                       mock_is_dir, mock_exists, mock_access, scanner):patch('pathlib    @patch('os.access')
-    @patch(    @patch('os.access')
-    @patch('pathlib.Path.exists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.iterdir')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_mixed_file_types(self, mock_is_file, mock_stat, mock_iterdir, 
-                                             mock_is_dir, mock_exists, mock_access, scanner):b.Path.exists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.iterdir')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_zero_size_files(self, mock_is_file, mock_stat, mock_iterdir, 
-                                            mock_is_dir, mock_exists, mock_access, scanner):xists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.iterdir')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_stat_error(self, mock_is_file, mock_stat, mock_iterdir, 
-                                       mock_is_dir, mock_exists, mock_access, scanner):h('pathlib.Path.is_dir')
-    @patch('pathlib.Path.glob')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_non_recursive(self, mock_is_file, mock_stat, mock_glob,
-                                          mock_is_dir, mock_exists, mock_access, scanner):  @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.rglob')
-    @patch('pathlib.Path.glob')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_recursive(self, mock_is_file, mock_stat, mock_glob,
-                                      mock_rglob, mock_is_dir, mock_exists, mock_access, scanner):ring, and error handling.
+Tests the FileScanner service including directory scanning, filtering,
+and error handling. The module contains unit tests that exercise both
+mocked and real temporary-file scenarios used by the `FileScanner`.
+
+Trailing whitespace inside this documentation string has been removed
+to satisfy linting rules; content is otherwise unchanged.
 """
 
 import pytest
@@ -78,9 +44,7 @@ class TestFileScanner:
 
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.is_dir")
-    def test_scan_file_instead_of_directory(
-        self, mock_is_dir, mock_exists, scanner
-    ):
+    def test_scan_file_instead_of_directory(self, mock_is_dir, mock_exists, scanner):
         """Test scanning a file instead of directory raises error."""
         mock_exists.return_value = True
         mock_is_dir.return_value = False

@@ -40,7 +40,9 @@ def test_series_group_recorded_and_hashing_preserved(tmp_path):
     detector = DuplicateDetector()
     metadata = DummyMetadata()
 
-    duplicates = detector.find_duplicates(files, progress_reporter=None, verbose=False, metadata=metadata)
+    duplicates = detector.find_duplicates(
+        files, progress_reporter=None, verbose=False, metadata=metadata
+    )
 
     # Expect at least one duplicate group found for the hash of b"duplicate-content"
     expected_h = hashlib.blake2b(b"duplicate-content").hexdigest()
@@ -72,7 +74,9 @@ def test_non_series_duplicates_unchanged(tmp_path):
     detector = DuplicateDetector()
     metadata = DummyMetadata()
 
-    duplicates = detector.find_duplicates(files, progress_reporter=None, verbose=False, metadata=metadata)
+    duplicates = detector.find_duplicates(
+        files, progress_reporter=None, verbose=False, metadata=metadata
+    )
 
     assert len(duplicates) == 1
     expected_x = hashlib.blake2b(b"same-content").hexdigest()
@@ -113,7 +117,9 @@ def test_permission_error_handling(tmp_path):
     metadata = MetaWithErrors()
     detector = DuplicateDetector()
 
-    duplicates = detector.find_duplicates(files, progress_reporter=None, verbose=False, metadata=metadata)
+    duplicates = detector.find_duplicates(
+        files, progress_reporter=None, verbose=False, metadata=metadata
+    )
 
     # readable duplicates should be found
     expected = hashlib.blake2b(b"common").hexdigest()

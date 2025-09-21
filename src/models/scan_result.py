@@ -116,9 +116,7 @@ class ScanResult:
         self.metadata.duplicate_groups_found = len(self.duplicate_groups)
 
         # Update metadata statistics
-        self.metadata.update_duplicate_stats(
-            group.total_size, group.wasted_space
-        )
+        self.metadata.update_duplicate_stats(group.total_size, group.wasted_space)
 
         # Clear cached all_files set
         self._all_files = None
@@ -138,14 +136,10 @@ class ScanResult:
             raise TypeError("Must be a PotentialMatchGroup instance")
 
         if not group.is_potential_match_group:
-            raise ValueError(
-                "Potential match group must contain at least 2 files"
-            )
+            raise ValueError("Potential match group must contain at least 2 files")
 
         self.potential_match_groups.append(group)
-        self.metadata.potential_match_groups_found = len(
-            self.potential_match_groups
-        )
+        self.metadata.potential_match_groups_found = len(self.potential_match_groups)
 
         # Clear cached all_files set
         self._all_files = None
@@ -165,9 +159,7 @@ class ScanResult:
             self.metadata.duplicate_groups_found = len(self.duplicate_groups)
 
             # Update metadata statistics (subtract the group's contribution)
-            self.metadata.update_duplicate_stats(
-                -group.total_size, -group.wasted_space
-            )
+            self.metadata.update_duplicate_stats(-group.total_size, -group.wasted_space)
 
             # Clear cached all_files set
             self._all_files = None
@@ -226,9 +218,7 @@ class ScanResult:
 
         return filtered_groups
 
-    def get_duplicate_groups_by_extension(
-        self, extension: str
-    ) -> List[DuplicateGroup]:
+    def get_duplicate_groups_by_extension(self, extension: str) -> List[DuplicateGroup]:
         """
         Get duplicate groups containing files with a specific extension.
 
@@ -268,9 +258,7 @@ class ScanResult:
 
         return filtered_groups
 
-    def get_files_by_path_prefix(
-        self, path_prefix: Union[str, Path]
-    ) -> Set[UserFile]:
+    def get_files_by_path_prefix(self, path_prefix: Union[str, Path]) -> Set[UserFile]:
         """
         Get all files whose paths start with the given prefix.
 
@@ -326,9 +314,7 @@ class ScanResult:
             "total_duplicate_files": self.total_duplicate_files,
             "total_potential_match_files": self.total_potential_match_files,
             "total_wasted_space_bytes": self.total_wasted_space,
-            "total_wasted_space_mb": round(
-                self.total_wasted_space / (1024 * 1024), 2
-            ),
+            "total_wasted_space_mb": round(self.total_wasted_space / (1024 * 1024), 2),
             "space_savings_potential_percent": round(
                 self.metadata.space_savings_potential, 1
             ),
@@ -358,13 +344,9 @@ class ScanResult:
         Args:
             reverse: If True, sort most files to least (default)
         """
-        self.duplicate_groups.sort(
-            key=lambda group: group.file_count, reverse=reverse
-        )
+        self.duplicate_groups.sort(key=lambda group: group.file_count, reverse=reverse)
 
-    def sort_duplicate_groups_by_wasted_space(
-        self, reverse: bool = True
-    ) -> None:
+    def sort_duplicate_groups_by_wasted_space(self, reverse: bool = True) -> None:
         """
         Sort duplicate groups by wasted space.
 
@@ -375,9 +357,7 @@ class ScanResult:
             key=lambda group: group.wasted_space, reverse=reverse
         )
 
-    def sort_potential_matches_by_similarity(
-        self, reverse: bool = True
-    ) -> None:
+    def sort_potential_matches_by_similarity(self, reverse: bool = True) -> None:
         """
         Sort potential match groups by average similarity score.
 
@@ -415,9 +395,7 @@ class ScanResult:
         return {
             "metadata": self.metadata.to_dict(),
             "summary": self.get_summary(),
-            "duplicate_groups": [
-                group.to_dict() for group in self.duplicate_groups
-            ],
+            "duplicate_groups": [group.to_dict() for group in self.duplicate_groups],
             "potential_match_groups": [
                 group.to_dict() for group in self.potential_match_groups
             ],

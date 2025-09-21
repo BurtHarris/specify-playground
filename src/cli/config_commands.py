@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..lib.config_manager import ConfigManager
+from ..lib.container import Container
 
 
 @click.group()
@@ -30,7 +31,10 @@ def config():
 )
 def show(output_format: str):
     """Show current configuration settings."""
-    config_manager = ConfigManager()
+    try:
+        config_manager = Container().config_manager()
+    except Exception:
+        config_manager = ConfigManager()
 
     try:
         settings = config_manager.get_all_settings()
@@ -41,33 +45,23 @@ def show(output_format: str):
 
             click.echo(f"# Configuration file: {config_path}")
             click.echo(
-                yaml.safe_dump(
-                    settings, default_flow_style=False, sort_keys=False
-                )
+                yaml.safe_dump(settings, default_flow_style=False, sort_keys=False)
             )
         else:
             # Table format
             click.echo(f"Configuration file: {config_path}")
             click.echo()
             click.echo("User Preferences:")
-            click.echo(
-                f"  Fuzzy threshold: {settings.get('fuzzy_threshold', 'N/A')}"
-            )
+            click.echo(f"  Fuzzy threshold: {settings.get('fuzzy_threshold', 'N/A')}")
             click.echo(
                 f"  Large file threshold: {_format_bytes(settings.get('large_file_threshold', 0))} ({settings.get('large_file_threshold', 'N/A')} bytes)"
             )
             click.echo(
                 f"  Default output format: {settings.get('default_output_format', 'N/A')}"
             )
-            click.echo(
-                f"  Recursive scan: {settings.get('recursive_scan', 'N/A')}"
-            )
-            click.echo(
-                f"  Verbose mode: {settings.get('verbose_mode', 'N/A')}"
-            )
-            click.echo(
-                f"  Show progress: {settings.get('show_progress', 'N/A')}"
-            )
+            click.echo(f"  Recursive scan: {settings.get('recursive_scan', 'N/A')}")
+            click.echo(f"  Verbose mode: {settings.get('verbose_mode', 'N/A')}")
+            click.echo(f"  Show progress: {settings.get('show_progress', 'N/A')}")
 
             click.echo()
             click.echo("Statistics:")
@@ -89,7 +83,10 @@ def show(output_format: str):
 @click.argument("value")
 def set(key: str, value: str):
     """Set a configuration value."""
-    config_manager = ConfigManager()
+    try:
+        config_manager = Container().config_manager()
+    except Exception:
+        config_manager = ConfigManager()
 
     # Validate key
     valid_keys = {
@@ -130,7 +127,10 @@ def set(key: str, value: str):
 )
 def history(limit: int):
     """Show scan history."""
-    config_manager = ConfigManager()
+    try:
+        config_manager = Container().config_manager()
+    except Exception:
+        config_manager = ConfigManager()
 
     try:
         history = config_manager.get_scan_history()
@@ -158,9 +158,7 @@ def history(limit: int):
                 f"   Last scanned: {_format_timestamp(entry.get('last_scanned', ''))}"
             )
             click.echo(f"   Files found: {entry.get('file_count', 0)}")
-            click.echo(
-                f"   Duplicates found: {entry.get('duplicates_found', 0)}"
-            )
+            click.echo(f"   Duplicates found: {entry.get('duplicates_found', 0)}")
             click.echo()
 
         if len(history) > limit:
@@ -173,12 +171,13 @@ def history(limit: int):
 
 
 @config.command()
-@click.confirmation_option(
-    prompt="Are you sure you want to clear all scan history?"
-)
+@click.confirmation_option(prompt="Are you sure you want to clear all scan history?")
 def clear_history():
     """Clear all scan history."""
-    config_manager = ConfigManager()
+    try:
+        config_manager = Container().config_manager()
+    except Exception:
+        config_manager = ConfigManager()
 
     try:
         config_manager.clear_scan_history()
@@ -194,7 +193,10 @@ def clear_history():
 )
 def reset():
     """Reset all configuration to defaults."""
-    config_manager = ConfigManager()
+    try:
+        config_manager = Container().config_manager()
+    except Exception:
+        config_manager = ConfigManager()
 
     try:
         config_manager.reset_to_defaults()
@@ -228,9 +230,7 @@ def _convert_value(key: str, value: str) -> Any:
         except ValueError as e:
             if "must be between" in str(e):
                 raise e
-            raise ValueError(
-                "Fuzzy threshold must be a number between 0.0 and 1.0"
-            )
+            raise ValueError("Fuzzy threshold must be a number between 0.0 and 1.0")
 
     elif key == "large_file_threshold":
         try:

@@ -64,9 +64,7 @@ def show_duplicate_group(group, group_num, total_groups):
     """Display a duplicate group concisely."""
     files = group["files"]
 
-    print(
-        f"\nGroup {group_num}/{total_groups} - {group['space_wasted_human']} waste:"
-    )
+    print(f"\nGroup {group_num}/{total_groups} - {group['space_wasted_human']} waste:")
 
     # Show all files in the group
     for i, file_info in enumerate(files, 1):
@@ -127,9 +125,7 @@ def show_auto_decision_concise(files):
     scores.sort(reverse=True)
     best_index = scores[0][1]
 
-    print(
-        f"Recommend KEEP: #{best_index + 1} {Path(files[best_index]['path']).name}"
-    )
+    print(f"Recommend KEEP: #{best_index + 1} {Path(files[best_index]['path']).name}")
     delete_files = [i + 1 for i in range(len(files)) if i != best_index]
     if delete_files:
         print(f"         DELETE: {', '.join(f'#{n}' for n in delete_files)}")
@@ -276,13 +272,10 @@ def main():
 
         # Check if this is a "safe" group (all numbered duplicates)
         all_numbered = all(is_numbered_duplicate(f["path"]) for f in files)
-        has_base_file = any(
-            not is_numbered_duplicate(f["path"]) for f in files
-        )
+        has_base_file = any(not is_numbered_duplicate(f["path"]) for f in files)
 
         if all_numbered or (
-            has_base_file
-            and any(is_numbered_duplicate(f["path"]) for f in files)
+            has_base_file and any(is_numbered_duplicate(f["path"]) for f in files)
         ):
             print("\n[SAFE GROUP: Numbered browser duplicates detected]")
             # Auto-delete numbered duplicates, keep base file or lowest number
@@ -319,18 +312,14 @@ def main():
         elif action == "auto":
             # Auto-recommendation already calculated in get_user_choice_simple
             best_index = show_auto_decision_concise(files)
-            files_to_delete = [
-                i + 1 for i in range(len(files)) if i != best_index
-            ]
+            files_to_delete = [i + 1 for i in range(len(files)) if i != best_index]
             action = "delete"
         elif action == "auto_safe":
             pass  # files_to_delete already set
         elif action == "keep":
             # Convert "keep" to "delete" (delete all others)
             files_to_delete = [
-                i + 1
-                for i in range(len(files))
-                if (i + 1) not in files_to_delete
+                i + 1 for i in range(len(files)) if (i + 1) not in files_to_delete
             ]
             action = "delete"
 

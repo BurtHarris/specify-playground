@@ -114,16 +114,12 @@ class TestFuzzyMatchingIntegration:
         dark_knight_found = False
         for group in potential_matches:
             group_names = [f.path.stem.lower() for f in group.files]
-            if any(
-                "dark" in name and "knight" in name for name in group_names
-            ):
+            if any("dark" in name and "knight" in name for name in group_names):
                 dark_knight_found = True
                 assert len(group.files) >= 2  # At least 2 similar files
                 assert group.similarity_score >= 0.8  # High similarity
 
-        assert (
-            dark_knight_found
-        ), "Should find The Dark Knight filename variations"
+        assert dark_knight_found, "Should find The Dark Knight filename variations"
 
     @pytest.mark.integration
     def test_fuzzy_matching_ignores_file_extensions(self):
@@ -145,13 +141,9 @@ class TestFuzzyMatchingIntegration:
                 # Look for groups where stems are similar but extensions differ
                 if len(set(extensions)) > 1:  # Different extensions
                     # Stems should be similar (ignoring punctuation differences)
-                    base_stem = (
-                        stems[0].replace("_", "").replace(".", "").lower()
-                    )
+                    base_stem = stems[0].replace("_", "").replace(".", "").lower()
                     for stem in stems[1:]:
-                        compare_stem = (
-                            stem.replace("_", "").replace(".", "").lower()
-                        )
+                        compare_stem = stem.replace("_", "").replace(".", "").lower()
                         if (
                             base_stem == compare_stem
                             or base_stem in compare_stem
@@ -225,14 +217,10 @@ class TestFuzzyMatchingIntegration:
         # Should find a group with the punctuation variants
         punctuation_match_found = False
         for group in potential_matches:
-            if (
-                len(group.files) >= 3
-            ):  # Should group multiple punctuation variants
+            if len(group.files) >= 3:  # Should group multiple punctuation variants
                 group_names = [f.path.name for f in group.files]
                 movie_title_variants = [
-                    name
-                    for name in group_names
-                    if "Movie" in name and "Title" in name
+                    name for name in group_names if "Movie" in name and "Title" in name
                 ]
 
                 if len(movie_title_variants) >= 3:
@@ -272,9 +260,7 @@ class TestFuzzyMatchingIntegration:
             if len(group.files) >= 3:
                 group_names = [f.path.stem.lower() for f in group.files]
                 action_movie_variants = [
-                    name
-                    for name in group_names
-                    if "action" in name and "movie" in name
+                    name for name in group_names if "action" in name and "movie" in name
                 ]
 
                 if len(action_movie_variants) >= 3:
@@ -338,9 +324,7 @@ class TestFuzzyMatchingIntegration:
             if len(group.files) >= 3:
                 group_names = [f.path.stem.lower() for f in group.files]
                 breaking_bad_episodes = [
-                    name
-                    for name in group_names
-                    if "breaking" in name and "bad" in name
+                    name for name in group_names if "breaking" in name and "bad" in name
                 ]
 
                 if len(breaking_bad_episodes) >= 3:
@@ -380,16 +364,12 @@ class TestFuzzyMatchingIntegration:
         for group in potential_matches:
             if len(group.files) >= 4:  # Should group multiple quality variants
                 group_names = [f.path.stem.lower() for f in group.files]
-                avatar_variants = [
-                    name for name in group_names if "avatar" in name
-                ]
+                avatar_variants = [name for name in group_names if "avatar" in name]
 
                 if len(avatar_variants) >= 4:
                     quality_match_found = True
 
-        assert (
-            quality_match_found
-        ), "Should match files despite quality indicators"
+        assert quality_match_found, "Should match files despite quality indicators"
 
     @pytest.mark.integration
     def test_fuzzy_matching_excludes_very_different_names(self):
@@ -446,9 +426,7 @@ class TestFuzzyMatchingIntegration:
         duration = time.time() - start_time
 
         # Should complete in reasonable time (adjust threshold as needed)
-        assert (
-            duration < 30.0
-        ), f"Fuzzy matching took too long: {duration} seconds"
+        assert duration < 30.0, f"Fuzzy matching took too long: {duration} seconds"
 
         # Should find some matches from our similar files
         assert (
@@ -502,12 +480,8 @@ class TestFuzzyMatchingIntegration:
 
         # Files that are exact duplicates should not appear in potential matches
         # (they're already confirmed duplicates)
-        duplicate_files = {
-            f.path for group in duplicate_groups for f in group.files
-        }
-        potential_files = {
-            f.path for group in potential_matches for f in group.files
-        }
+        duplicate_files = {f.path for group in duplicate_groups for f in group.files}
+        potential_files = {f.path for group in potential_matches for f in group.files}
 
         # There might be some overlap, but the systems should work together
         assert len(duplicate_files) > 0

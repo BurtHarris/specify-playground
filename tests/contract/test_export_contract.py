@@ -42,9 +42,7 @@ class TestCLIExportContract:
         """Test: YAML export is the default format and produces valid YAML."""
         export_file = Path(self.temp_dir) / "results.yaml"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
 
         # Contract: Export succeeds
         assert result.exit_code == 0
@@ -65,9 +63,7 @@ class TestCLIExportContract:
         """Test: JSON export is no longer supported - only YAML export."""
         export_file = Path(self.temp_dir) / "results.json"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
 
         # Contract: JSON export should not be supported (YAML-only)
         # The CLI should either reject .json extension or create YAML content
@@ -90,9 +86,7 @@ class TestCLIExportContract:
         """Test: Export file contains all required schema elements."""
         export_file = Path(self.temp_dir) / "results.yaml"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
         assert result.exit_code == 0
 
         with open(export_file, "r") as f:
@@ -131,9 +125,7 @@ class TestCLIExportContract:
 
         export_file = Path(self.temp_dir) / "results.yaml"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
         assert result.exit_code == 0
 
         # Contract: Unicode paths are preserved correctly
@@ -149,9 +141,7 @@ class TestCLIExportContract:
         """Test: Export includes human-readable file size formatting."""
         export_file = Path(self.temp_dir) / "results.yaml"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
         assert result.exit_code == 0
 
         with open(export_file, "r") as f:
@@ -167,8 +157,7 @@ class TestCLIExportContract:
                             size_str = str(file_info["size"])
                             # Should contain units like B, KB, MB, GB
                             assert any(
-                                unit in size_str
-                                for unit in ["B", "KB", "MB", "GB"]
+                                unit in size_str for unit in ["B", "KB", "MB", "GB"]
                             )
 
     @pytest.mark.contract
@@ -176,9 +165,7 @@ class TestCLIExportContract:
         """Test: Export uses ISO 8601 format for timestamps."""
         export_file = Path(self.temp_dir) / "results.yaml"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
         assert result.exit_code == 0
 
         with open(export_file, "r") as f:
@@ -241,9 +228,7 @@ class TestCLIExportContract:
 
         # Mock test - verify error handling structure exists
         export_file = Path(self.temp_dir) / "results.yaml"
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
 
         # Should succeed with normal disk space
         assert result.exit_code in [0, 4]  # Success or disk space error
@@ -257,18 +242,14 @@ class TestCLIExportContract:
         with open(export_file, "w") as f:
             f.write("existing content")
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
         assert result.exit_code == 0
 
         # Contract: File should be overwritten with new content
         with open(export_file, "r") as f:
             data = yaml.safe_load(f)
 
-        assert (
-            data["version"] == "1.0.0"
-        )  # New content, not "existing content"
+        assert data["version"] == "1.0.0"  # New content, not "existing content"
 
     @pytest.mark.contract
     def test_export_creates_parent_directories(self):
@@ -276,9 +257,7 @@ class TestCLIExportContract:
         nested_path = Path(self.temp_dir) / "deep" / "nested" / "path"
         export_file = nested_path / "results.yaml"
 
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
 
         # Contract: Should handle parent directory creation gracefully
         # May succeed by creating directories, or fail with meaningful error
@@ -291,8 +270,7 @@ class TestCLIExportContract:
         else:
             # If failed, should include meaningful error
             assert (
-                "error" in result.output.lower()
-                or "directory" in result.output.lower()
+                "error" in result.output.lower() or "directory" in result.output.lower()
             )
 
     @pytest.mark.contract
@@ -301,9 +279,7 @@ class TestCLIExportContract:
         export_file = Path(self.temp_dir) / "results.yaml"
 
         # Test export creates YAML file
-        result = self.runner.invoke(
-            main, ["--export", str(export_file), self.temp_dir]
-        )
+        result = self.runner.invoke(main, ["--export", str(export_file), self.temp_dir])
 
         assert result.exit_code == 0
         assert export_file.exists()

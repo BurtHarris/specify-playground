@@ -10,10 +10,11 @@ from pathlib import Path
 import tempfile
 import hashlib
 from src.models.user_file import UserFile
- 
+
+
 class TestUserFile:
     """Test suite for UserFile model."""
- 
+
     @pytest.fixture
     def temp_user_file(self):
         """Create a temporary user file for testing."""
@@ -23,16 +24,16 @@ class TestUserFile:
         yield temp_path
         if temp_path.exists():
             temp_path.unlink()
- 
+
     def test_user_file_creation(self, temp_user_file):
         """Test basic UserFile creation."""
         user_file = UserFile(temp_user_file)
         assert user_file._path == temp_user_file.resolve()
         assert user_file.extension == ".mp4"
         assert user_file.size > 0
- 
+
     # ... (rest of the test methods remain unchanged)
- 
+
     def test_ordering(self, temp_user_file):
         """Test UserFile ordering."""
         user1 = UserFile(temp_user_file)
@@ -46,6 +47,8 @@ class TestUserFile:
             assert len(users) == 2
         finally:
             temp_path2.unlink()
+
+
 import tempfile
 import hashlib
 from src.models.user_file import UserFile
@@ -89,9 +92,7 @@ class TestUserFile:
 
     def test_user_file_creation_unsupported_extension(self):
         """Test UserFile creation with unsupported extension raises error."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".unsupported", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".unsupported", delete=False) as f:
             f.write(b"test content")
             temp_path = Path(f.name)
         try:
@@ -133,10 +134,7 @@ class TestUserFile:
         assert "UserFile" in repr_str
         # Normalize path separators for cross-platform compatibility
         expected_path = str(temp_user_file.resolve()).replace("\\", "/")
-        assert (
-            expected_path in repr_str
-            or str(temp_user_file.resolve()) in repr_str
-        )
+        assert expected_path in repr_str or str(temp_user_file.resolve()) in repr_str
         assert ".mp4" in repr_str
 
     def test_compute_hash_blake2b(self, temp_user_file):
@@ -243,9 +241,7 @@ class TestUserFile:
         finally:
             temp_path.unlink()
 
-    @pytest.mark.parametrize(
-        "extension", [".txt", ".jpg", ".pdf", ".avi", ".wmv"]
-    )
+    @pytest.mark.parametrize("extension", [".txt", ".jpg", ".pdf", ".avi", ".wmv"])
     def test_unsupported_extensions(self, extension):
         """Test VideoFile rejects unsupported extensions."""
         with tempfile.NamedTemporaryFile(suffix=extension, delete=False) as f:

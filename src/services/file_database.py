@@ -38,9 +38,7 @@ class FileDatabase:
         cur.executescript(sql.read_text())
         self._conn.commit()
 
-    def get_cached_hash(
-        self, path: Path, size: int, mtime: float
-    ) -> Optional[str]:
+    def get_cached_hash(self, path: Path, size: int, mtime: float) -> Optional[str]:
         """Return cached hash if present and matching size+mtime, else None."""
         if self._conn is None:
             self.connect()
@@ -93,9 +91,7 @@ class InMemoryFileDatabase(FileDatabase):
         # No-op for in-memory store
         return
 
-    def get_cached_hash(
-        self, path: Path, size: int, mtime: float
-    ) -> Optional[str]:
+    def get_cached_hash(self, path: Path, size: int, mtime: float) -> Optional[str]:
         rec = self._store.get(str(path))
         if not rec:
             return None

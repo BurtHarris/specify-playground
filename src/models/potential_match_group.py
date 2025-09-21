@@ -41,9 +41,7 @@ class PotentialMatchGroup:
             raise ValueError("Base name cannot be empty")
 
         if not (0.0 <= similarity_threshold <= 1.0):
-            raise ValueError(
-                "Similarity threshold must be between 0.0 and 1.0"
-            )
+            raise ValueError("Similarity threshold must be between 0.0 and 1.0")
 
         self._base_name = base_name.strip()
         self._similarity_threshold = similarity_threshold
@@ -139,10 +137,7 @@ class PotentialMatchGroup:
         # Accept either the compatibility wrapper UserFile or the concrete implementation
         if not (
             isinstance(file, UserFile)
-            or (
-                _ConcreteUserFile is not None
-                and isinstance(file, _ConcreteUserFile)
-            )
+            or (_ConcreteUserFile is not None and isinstance(file, _ConcreteUserFile))
         ):
             raise TypeError("Can only add UserFile instances")
 
@@ -330,9 +325,7 @@ class PotentialMatchGroup:
             ValueError: If new_threshold is invalid
         """
         if not (0.0 <= new_threshold <= 1.0):
-            raise ValueError(
-                "Similarity threshold must be between 0.0 and 1.0"
-            )
+            raise ValueError("Similarity threshold must be between 0.0 and 1.0")
 
         self._similarity_threshold = new_threshold
 

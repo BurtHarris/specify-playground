@@ -13,9 +13,7 @@ class DirectoryNotFoundError(Exception):
 
 class FileScanner:
     def __init__(self, extensions: Optional[Set[str]] = None):
-        self.extensions = (
-            {e.lower() for e in extensions} if extensions else None
-        )
+        self.extensions = {e.lower() for e in extensions} if extensions else None
 
     def scan_directory(
         self,
@@ -32,13 +30,9 @@ class FileScanner:
         if not directory.exists():
             raise DirectoryNotFoundError(f"Directory not found: {directory}")
         if not directory.is_dir():
-            raise DirectoryNotFoundError(
-                f"Path is not a directory: {directory}"
-            )
+            raise DirectoryNotFoundError(f"Path is not a directory: {directory}")
         if not os.access(directory, os.R_OK):
-            raise PermissionError(
-                f"Permission denied accessing directory: {directory}"
-            )
+            raise PermissionError(f"Permission denied accessing directory: {directory}")
 
         iterator = (
             self._scan_recursive(directory)
@@ -99,9 +93,7 @@ class FileScanner:
             except (FileNotFoundError, PermissionError, ValueError):
                 if metadata is not None:
                     try:
-                        metadata.errors.append(
-                            {"file": str(p), "error": "access"}
-                        )
+                        metadata.errors.append({"file": str(p), "error": "access"})
                     except Exception:
                         pass
             finally:

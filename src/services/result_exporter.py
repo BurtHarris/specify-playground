@@ -8,7 +8,7 @@ with proper error handling and validation.
 import yaml
 from pathlib import Path
 from typing import Dict, Any
- 
+
 
 from ..models.scan_result import ScanResult
 
@@ -63,7 +63,9 @@ class ResultExporter:
                 "total_files_processed": result.metadata.total_files_processed,
                 "recursive": result.metadata.recursive,
                 # Keep `errors` present to satisfy contract tests; it may be an empty list
-                "errors": result.metadata.errors if result.metadata.errors is not None else [],
+                "errors": result.metadata.errors
+                if result.metadata.errors is not None
+                else [],
                 # Series detection summary (optional)
                 "series_groups_found": getattr(
                     result.metadata, "series_groups_found", 0
@@ -75,13 +77,9 @@ class ResultExporter:
                     "group_id": group.hash_value,
                     "file_count": len(group.files),
                     "total_size_bytes": group.total_size,
-                    "total_size_human": self._format_file_size(
-                        group.total_size
-                    ),
+                    "total_size_human": self._format_file_size(group.total_size),
                     "space_wasted_bytes": group.wasted_space,
-                    "space_wasted_human": self._format_file_size(
-                        group.wasted_space
-                    ),
+                    "space_wasted_human": self._format_file_size(group.wasted_space),
                     "files": [
                         {
                             "path": str(file.path),
@@ -121,7 +119,10 @@ class ResultExporter:
             # Always keep `errors` present (may be empty) to satisfy contract tests.
             # Only omit the detailed `series_groups` list when empty to reduce
             # YAML clutter.
-            if isinstance(meta.get("series_groups"), list) and len(meta["series_groups"]) == 0:
+            if (
+                isinstance(meta.get("series_groups"), list)
+                and len(meta["series_groups"]) == 0
+            ):
                 del meta["series_groups"]
         except Exception:
             # Non-critical: avoid letting export preparation fail on metadata shaping
