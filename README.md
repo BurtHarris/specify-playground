@@ -50,16 +50,16 @@ python -m src /path/to/videos --no-recursive
 
 ### CLI: logging and examples
 
-The CLI exposes a `--log-level` option which controls the logging verbosity for the CLI and any injected components (for example, the scanner and detector). This is useful when debugging or when more/less output is desired.
+The CLI exposes `--debug` and `--warning` flags which control the logging verbosity for the CLI and any injected components (for example, the scanner and detector). `--debug` enables DEBUG output; `--warning` reduces output to warnings and errors. If neither flag is provided, INFO is the default.
 
 Examples:
 
 ```bash
 # Scan a folder with debug logging enabled
-python -m src /path/to/videos --log-level DEBUG
+python -m src /path/to/videos --debug
 
 # Scan and export results to YAML
-python -m src /path/to/videos --export results.yaml --log-level INFO
+python -m src /path/to/videos --export results.yaml
 ```
 
 ### Cloud Status Filtering

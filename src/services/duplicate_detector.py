@@ -88,23 +88,28 @@ class DuplicateDetector:
             return []
 
         if verbose:
-            print(f"Analyzing {len(files)} files for duplicates...")
-            # Show cloud status breakdown
-            cloud_only_count = sum(1 for f in files if f.is_cloud_only)
-            local_count = len(files) - cloud_only_count
-            print(f"  Cloud-only files: {cloud_only_count}")
-            print(f"  Local files: {local_count}")
-            print()
-
-            # Show detailed analysis of each file
-            print("File analysis:")
-            for user_file in files:
-                cloud_status = "CLOUD-ONLY" if user_file.is_cloud_only else "LOCAL"
-                size_mb = user_file.size / (1024 * 1024)
-                print(
-                    f"  {cloud_status:10} | {size_mb:8.1f} MB | {user_file.path.name}"
-                )
-            print()
+            # Keep concise high-level info via logger
+            try:
+                self._logger.info(f"Analyzing {len(files)} files for duplicates...")
+                cloud_only_count = sum(1 for f in files if f.is_cloud_only)
+                local_count = len(files) - cloud_only_count
+                self._logger.info(f"  Cloud-only files: {cloud_only_count}")
+                self._logger.info(f"  Local files: {local_count}")
+                # Provide per-file listing at DEBUG so individual file lines only
+                # appear when DEBUG logging is enabled; verbose CLI still shows
+                # summaries at INFO level.
+                for user_file in files:
+                    cloud_status = "CLOUD-ONLY" if user_file.is_cloud_only else "LOCAL"
+                    try:
+                        size_mb = user_file.size / (1024 * 1024)
+                    except Exception:
+                        size_mb = 0
+                    self._logger.debug(
+                        f"  {cloud_status:10} | {size_mb:8.1f} MB | {user_file.path}"
+                    )
+            except Exception:
+                # If logging fails, continue without per-file details
+                pass
 
         # Stage 1: Group files by size for performance optimization
         size_groups = defaultdict(list)
@@ -121,7 +126,7 @@ class DuplicateDetector:
             groups_with_multiple = sum(
                 1 for file_list in size_groups.values() if len(file_list) >= 2
             )
-            print(f"Found {groups_with_multiple} size groups with potential duplicates")
+            self._logger.info(f"Found {groups_with_multiple} size groups with potential duplicates")
             # series count will be reported after analysis when known
         # NOTE: Do NOT skip hashing for series-numbered groups.
         # If sizes match, always run the hash. Only treat as series if hashes differ.
@@ -176,8 +181,9 @@ class DuplicateDetector:
                 # any true duplicates within the series are still detected.
                 if is_series_group:
                     if verbose:
-                        print(
-                            f"  LIKELY SERIES (will still hash): {[f.path.name for f in file_list]}"
+                        # Log series detection at debug level; keep console output brief
+                        self._logger.debug(
+                            f"LIKELY SERIES: {[str(f.path) for f in file_list]}"
                         )
                     # Record a serializable representation of the group for export
                     try:
@@ -238,13 +244,13 @@ class DuplicateDetector:
                     # Skip hash computation for cloud-only files to avoid triggering downloads
                     if hasattr(file, "is_cloud_only") and file.is_cloud_only:
                         if verbose:
-                            print(f"  SKIPPED (cloud-only): {file.path.name}")
+                            self._logger.debug(f"SKIPPED (cloud-only): {file.path}")
                         hashed_files += 1
                         skipped_cloud_files += 1
                         continue
 
                     if verbose:
-                        print(f"  HASHING: {file.path.name}")
+                        self._logger.debug(f"HASHING: {file.path}")
 
                     # Compute hash if not already done
                     if hasattr(file, "compute_hash"):
@@ -274,12 +280,11 @@ class DuplicateDetector:
                     hashed_files += 1
                 except (OSError, PermissionError) as e:
                     if verbose:
-                        # 'file' is the loop variable in scope here
                         try:
-                            name = file.path.name
+                            name = file.path
                         except Exception:
-                            name = '<unknown>'
-                        print(f"  SKIPPED (error): {name} - {e}")
+                            name = "<unknown>"
+                        self._logger.debug(f"SKIPPED (error): {name} - {e}")
                     # Skip files that can't be read
                     hashed_files += 1
                     skipped_error_files += 1
@@ -292,18 +297,29 @@ class DuplicateDetector:
                     duplicate_group = DuplicateGroup(file_hash, files_with_same_hash)
                     duplicate_groups.append(duplicate_group)
                     if verbose:
-                        print(
+                        # Announce duplicate groups at INFO (concise)
+                        self._logger.info(
                             f"  DUPLICATE GROUP: {len(files_with_same_hash)} files with hash {file_hash[:8]}..."
                         )
 
         if verbose:
-            print("Hash computation summary:")
-            print(
+            # Summary via logger
+            self._logger.info("Hash computation summary:")
+            self._logger.info(
                 f"  Files hashed: {hashed_files - skipped_cloud_files - skipped_error_files}"
             )
-            print(f"  Cloud-only files skipped: {skipped_cloud_files}")
-            print(f"  Error files skipped: {skipped_error_files}")
-            print(f"  Duplicate groups found: {len(duplicate_groups)}")
+            self._logger.info(f"  Cloud-only files skipped: {skipped_cloud_files}")
+            self._logger.info(f"  Error files skipped: {skipped_error_files}")
+            self._logger.info(f"  Duplicate groups found: {len(duplicate_groups)}")
+            # Detailed metrics to debug log
+            self._logger.debug(
+                {
+                    "hashed_files": hashed_files,
+                    "skipped_cloud": skipped_cloud_files,
+                    "skipped_error": skipped_error_files,
+                    "duplicate_groups": len(duplicate_groups),
+                }
+            )
 
         # Terminal summary: report series groups skipped (brief, even when not verbose)
         if skipped_series:
@@ -311,7 +327,8 @@ class DuplicateDetector:
             if series_group_count is None:
                 # fallback to local capture
                 series_group_count = len(series_groups)
-            print(
+            # Log series summary at info level
+            self._logger.info(
                 f"Series groups skipped: {series_group_count} groups, {skipped_series} files"
             )
 
@@ -371,7 +388,7 @@ class DuplicateDetector:
             return []
 
         if verbose:
-            print(
+            self._logger.info(
                 f"Analyzing {len(files)} files for potential matches (name similarity threshold: {threshold})..."
             )
 
@@ -399,7 +416,9 @@ class DuplicateDetector:
                 # Check if files should be excluded from similarity matching
                 if self._should_exclude_from_similarity(name1, name2):
                     if verbose:
-                        print(
+                        # Exclusions between filename pairs are file-level details
+                        # and should be emitted at DEBUG level only.
+                        self._logger.debug(
                             f"  EXCLUDED (name patterns): '{file1.path.name}' vs '{file2.path.name}' (obvious non-duplicates)"
                         )
                     excluded_pairs += 1
@@ -414,16 +433,35 @@ class DuplicateDetector:
                     size_ratio = max(file1.size, file2.size) / max(
                         min(file1.size, file2.size), 1
                     )
+                    # If filenames look like a numbered series (episode/part/vol/etc.)
+                    # and the sizes differ by more than 10%, treat them as distinct
+                    # versions and exclude from potential-duplicate groups. This
+                    # reduces noisy potential-match results for serialized content.
+                    if self._is_series_pair(name1, name2) and size_ratio > 1.1:
+                        if verbose:
+                            # Series exclusions are file-pair level details; emit
+                            # at DEBUG so they only show when --debug is used.
+                            self._logger.debug(
+                                f"  EXCLUDED (series): '{file1.path.name}' vs '{file2.path.name}' - name similarity: {name_similarity:.2f}, sizes: {file1.size/(1024*1024):.1f}MB vs {file2.size/(1024*1024):.1f}MB (ratio: {size_ratio:.1f}x)"
+                            )
+                        excluded_pairs += 1
+                        continue
+
                     if size_ratio > 3.0:
                         if verbose:
-                            print(
+                            # Size-difference exclusions are file-pair level
+                            # details; emit at DEBUG only.
+                            self._logger.debug(
                                 f"  EXCLUDED (size diff): '{file1.path.name}' vs '{file2.path.name}' - name similarity: {name_similarity:.2f}, sizes: {file1.size/(1024*1024):.1f}MB vs {file2.size/(1024*1024):.1f}MB (ratio: {size_ratio:.1f}x)"
                             )
                         excluded_pairs += 1
                         continue
 
                     if verbose:
-                        print(
+                        # Individual POTENTIAL MATCH lines are file-level
+                        # diagnostics; route them to DEBUG so only --debug
+                        # shows the full pairwise listing.
+                        self._logger.debug(
                             f"  POTENTIAL MATCH: '{file1.path.name}' vs '{file2.path.name}' - name similarity: {name_similarity:.2f}, sizes: {file1.size/(1024*1024):.1f}MB vs {file2.size/(1024*1024):.1f}MB"
                         )
                     similar_files.append(file2)
@@ -445,7 +483,7 @@ class DuplicateDetector:
                 potential_groups.append(potential_group)
 
                 if verbose:
-                    print(
+                    self._logger.info(
                         f"  POTENTIAL GROUP: {len(similar_files)} files similar to '{file1.path.name}'"
                     )
 
@@ -454,11 +492,57 @@ class DuplicateDetector:
                     processed_files.add(file)
 
         if verbose:
-            print("Potential match analysis summary:")
-            print(f"  Potential groups found: {len(potential_groups)}")
-            print(f"  Excluded obvious non-duplicates: {excluded_pairs}")
+            self._logger.info("Potential match analysis summary:")
+            self._logger.info(f"  Potential groups found: {len(potential_groups)}")
+            self._logger.info(f"  Excluded obvious non-duplicates: {excluded_pairs}")
 
         return potential_groups
+
+    def _is_series_pair(self, name1: str, name2: str) -> bool:
+        """
+        Heuristic to detect if two filenames are part of the same numbered series
+        (episodes/parts/volumes/chapters) but different entries. Returns True
+        when a strong sequential/numbering pattern is present and the base
+        titles (with numbers removed) are very similar.
+
+        Names passed to this helper are expected to be normalized/lowercased
+        by `_extract_filename_for_comparison`.
+        """
+        # Patterns that commonly indicate series numbering
+        series_patterns = [
+            r"\bepisode\s*(\d+)\b",
+            r"\bep\s*(\d{1,3})\b",
+            r"\bpart\s*(\d+)\b",
+            r"\bchapter\s*(\d+)\b",
+            r"\bvol(?:ume)?\s*(\d+)\b",
+            r"\bchapter\s*(\d+)\b",
+            r"\b(?:s|season)\s*(\d+)e?(\d+)?\b",
+            r"\((\d{1,3})\)\s*$",
+            r"(?:\b|_|-)(\d{1,3})$",
+        ]
+
+        found_num1 = None
+        found_num2 = None
+        # Try to find a numeric token for each name using the patterns
+        for pat in series_patterns:
+            m1 = re.search(pat, name1, flags=re.IGNORECASE)
+            m2 = re.search(pat, name2, flags=re.IGNORECASE)
+            if m1 and m2:
+                # Prefer the captured numeric portion(s)
+                found_num1 = m1.group(1) if m1.groups() else m1.group(0)
+                found_num2 = m2.group(1) if m2.groups() else m2.group(0)
+                # If numbers differ, check base similarity
+                if found_num1 != found_num2:
+                    base1 = re.sub(pat, "", name1, flags=re.IGNORECASE).strip(" -_\t")
+                    base2 = re.sub(pat, "", name2, flags=re.IGNORECASE).strip(" -_\t")
+                    try:
+                        sim = fuzz.ratio(base1, base2) / 100.0
+                    except Exception:
+                        sim = 0.0
+                    if sim > 0.9:
+                        return True
+
+        return False
 
     def _extract_filename_for_comparison(self, file_path: Path) -> str:
         """

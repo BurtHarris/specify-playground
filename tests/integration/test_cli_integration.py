@@ -102,7 +102,7 @@ class TestCLIIntegration:
                 "-m",
                 "src",
                 "--recursive",
-                "--verbose",
+                "--debug",
                 str(temp_video_dir),
             ],
             capture_output=True,

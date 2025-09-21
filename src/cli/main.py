@@ -8,6 +8,7 @@ with Python version validation and comprehensive error handling for universal fi
 
 import sys
 import os
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -106,11 +107,6 @@ def enforce_utf8_stdio() -> None:
     environment variable so child processes inherit UTF-8 behaviour.
     """
     try:
-        import os as _os
-
-        # Ensure child processes inherit UTF-8 by default
-        _os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-
         for _name in ("stdout", "stderr"):
             _stream = getattr(sys, _name, None)
             if _stream is None:
@@ -121,13 +117,10 @@ def enforce_utf8_stdio() -> None:
                     _stream.reconfigure(encoding="utf-8", errors="backslashreplace", newline="\n")
             except Exception:
                 # Best-effort only; do not raise during CLI startup
-                try:
-                    # As a fallback, set environment and continue; if the
-                    # stream cannot be reconfigured, future writes will use
-                    # backslashreplace when encoded via bytes.
-                    _os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-                except Exception:
-                    pass
+                # If the stream cannot be reconfigured, continue silently; the
+                # reconfigure step is a convenience and errors here should not
+                # block CLI startup.
+                pass
     except Exception:
         # Never let encoding helpers break CLI startup
         pass
@@ -135,7 +128,7 @@ def enforce_utf8_stdio() -> None:
 
 # Enforce UTF-8 on stdio as early as possible so diagnostic printing cannot
 # abort long-running scans due to platform console encodings (e.g., cp1252).
-enforce_utf8_stdio()
+
 
 # Now safe to import our modules
 from ..services.file_scanner import FileScanner, DirectoryNotFoundError
@@ -146,6 +139,7 @@ from ..models.scan_result import ScanResult
 from ..models.scan_metadata import ScanMetadata
 from ..lib.config_manager import ConfigManager
 from .config_commands import config
+from .db_commands import db as db_commands
 from ..lib.container import Container
 
 
@@ -161,6 +155,193 @@ def format_size(bytes_size: int) -> str:
         bytes_size /= 1024
     return f"{bytes_size:.1f} PB"
 
+
+def _reconfigure_logger_for_stdout(logger: logging.Logger) -> None:
+    """Ensure INFO/DEBUG messages are written to stdout rather than stderr.
+
+    Removes any StreamHandler targeting stderr and adds a stdout StreamHandler
+    if none is present. This is a best-effort operation and does not raise
+    on failure.
+    """
+    try:
+        for h in list(logger.handlers):
+            try:
+                if isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stderr:
+                    logger.removeHandler(h)
+            except Exception:
+                pass
+
+        # If Rich is available, prefer RichHandler so logs and progress
+        # bars share the same Console and render cleanly together.
+        try:
+            from rich.logging import RichHandler
+            from rich.console import Console
+
+            console = Console()
+            rich_handler = RichHandler(console=console, rich_tracebacks=True)
+            # Remove existing stream handlers that write to stderr
+            for h in list(logger.handlers):
+                try:
+                    if isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stderr:
+                        logger.removeHandler(h)
+                except Exception:
+                    pass
+            # Add RichHandler if not already present
+            has_rich = any(h.__class__.__name__ == "RichHandler" for h in logger.handlers)
+            if not has_rich:
+                logger.addHandler(rich_handler)
+            # Ensure a StreamHandler targeting sys.stdout exists so tests that
+            # capture stdout see log messages there; RichHandler may render to
+            # its own console but some test environments assert presence of a
+            # stdout StreamHandler specifically.
+            has_stdout = any(
+                isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout
+                for h in logger.handlers
+            )
+            if not has_stdout:
+                sh = logging.StreamHandler(stream=sys.stdout)
+                sh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+                logger.addHandler(sh)
+        except Exception:
+            # Fall back to a simple stdout StreamHandler if Rich isn't available
+            has_stdout = any(
+                isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout
+                for h in logger.handlers
+            )
+            if not has_stdout:
+                sh = logging.StreamHandler(stream=sys.stdout)
+                sh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+                logger.addHandler(sh)
+    except Exception:
+        # Never let logging reconfiguration break CLI startup
+        pass
+
+
+@click.group(cls=CommandFirstGroup)
+@click.version_option(version=__version__)
+def cli():
+    """Specify CLI entrypoint."""
+
+
+@cli.group()
+def scan_group():
+    """Scan for duplicate files in a directory."""
+
+
+@scan_group.command()
+@click.argument("directory", type=click.Path(exists=True, file_okay=False, path_type=str))
+@click.option("--recursive/--no-recursive", default=True, help="Recurse into subdirectories")
+@click.option("--patterns", default="*", help="File glob patterns to include, comma-separated")
+@click.option("--db-path", default=None, help="Path to SQLite DB for caching hashes")
+@click.option("--verbose", is_flag=True, default=False, help="Print per-file progress to stdout")
+@click.option("--debug", is_flag=True, default=False, help="Enable DEBUG log level")
+@click.option("--warning", is_flag=True, default=False, help="Enable WARNING log level (disables INFO output)")
+@click.option("--export", default=None, help="Path to write scan results (YAML)")
+def run(directory, recursive, patterns, db_path, verbose, debug, warning, export):
+    """Run a scan of DIRECTORY for duplicates and potential matches."""
+    # Build DI container with default providers
+    try:
+        container = Container()
+    except Exception:
+        container = None
+
+    # Enforce at most one verbosity switch for this CLI invocation
+    # (choose one of --verbose, --debug, or --warning). The logger level
+    # is provided by the container configuration and internal code reads
+    # the logger level rather than relying on CLI parameters.
+    try:
+        # Allow explicit debug+warning combination: prefer debug and emit a warning.
+        if debug and warning:
+            click.echo(
+                "Warning: both --debug and --warning specified; using --debug (most verbose)",
+                err=True,
+            )
+            # Prefer debug mode; disable warning mode
+            warning = False
+        elif sum(bool(x) for x in (verbose, debug, warning)) > 1:
+            click.echo(
+                "Error: At most one of --verbose, --debug, or --warning may be specified; choose one.",
+                err=True,
+            )
+            sys.exit(2)
+    except Exception:
+        pass
+
+    # Do not set logger level here; the container's logger configuration
+    # defines the effective level. Internal code will read container.logger().level.
+    try:
+        _ = container.logger() if container is not None else None
+    except Exception:
+        pass
+
+    # (Mutual-exclusivity is enforced at the higher-level `scan` entrypoint)
+
+    # Route INFO/DEBUG output to stdout by default unless --warning was set.
+    try:
+        if container is not None:
+            logger = container.logger()
+            use_stdout = verbose or (not warning)
+            if use_stdout:
+                _reconfigure_logger_for_stdout(logger)
+    except Exception:
+        logger = None
+
+    # Create scanner from container providers when available
+    try:
+        db_instance = container.database(db_path) if container is not None else None
+    except Exception:
+        db_instance = None
+
+    try:
+        hasher_fn = container.hasher() if container is not None else None
+    except Exception:
+        hasher_fn = None
+
+    scanner = FileScanner(db=db_instance, patterns=patterns.split(","), recursive=recursive, hasher=hasher_fn, logger=(container.logger() if container else None))
+
+    try:
+        result: ScanResult = scanner.scan(Path(directory))
+    except DirectoryNotFoundError as exc:
+        click.echo(f"Directory not found: {exc}", err=True)
+        sys.exit(2)
+    except Exception as exc:
+        click.echo(f"Scan failed: {exc}", err=True)
+        sys.exit(4)
+
+    # Export results when requested
+    if export:
+        try:
+            exporter = ResultExporter()
+            exporter.export(result, Path(export))
+        except DiskSpaceError:
+            click.echo("Disk space error while writing export", err=True)
+            sys.exit(5)
+        except Exception as exc:
+            click.echo(f"Failed to export results: {exc}", err=True)
+            sys.exit(6)
+
+    # Print a short summary to stdout
+    click.echo(f"Found {len(result.duplicate_groups)} duplicate groups and {len(result.potential_match_groups)} potential match groups")
+
+
+cli.add_command(config)
+cli.add_command(db_commands)
+
+
+def main(argv: list | None = None) -> int:
+    """CLI entry point for programmatic invocation. Returns exit code."""
+    try:
+        cli.main(args=argv, prog_name="specify", standalone_mode=False)
+        return 0
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 0
+    except Exception as exc:
+        click.echo(f"Unhandled error: {exc}", err=True)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 
 @click.group(
     cls=CommandFirstGroup,
@@ -192,6 +373,25 @@ def main(ctx: click.Context):
             --progress / --no-progress      Show progress bar
             --color / --no-color            Colorized output
     """
+    # Ensure child processes inherit UTF-8 when the CLI starts. This is a
+    # defensive measure for shells that don't default to UTF-8; it is set
+    # here (rather than module import time) so tests can control environment
+    # if needed and to avoid side-effects during import.
+    try:
+        os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    except Exception:
+        # Non-fatal if environment cannot be mutated in restricted contexts
+        pass
+
+    # Require Rich for consistent console rendering. Fail early with a
+    # clear error if Rich is not available to avoid silent degraded
+    # behaviour across different environments.
+    try:
+        import rich  # type: ignore
+    except Exception:
+        click.echo("Error: 'rich' package is required for this CLI. Please install it (e.g. pip install rich).", err=True)
+        ctx.exit(2)
+
     # If invoked without a subcommand, show help. When help was explicitly
     # requested at the top level (e.g. `python -m src --help`), also include
     # the `scan` subcommand help so options like --recursive and --export are
@@ -286,14 +486,8 @@ def main(ctx: click.Context):
     default=None,
     help="Colorized output (default: auto-detect)",
 )
-@click.option(
-    "--log-level",
-    type=click.Choice(
-        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
-    ),
-    default=None,
-    help="Set logging level for the CLI and injected components (e.g. DEBUG)",
-)
+@click.option("--debug", default=None, is_flag=True, help="Enable DEBUG log level (overrides config)")
+@click.option("--warning", default=None, is_flag=True, help="Enable WARNING log level (overrides config)")
 def scan(
     directory: Path,
     db_path: Optional[Path],
@@ -304,7 +498,8 @@ def scan(
     verbose: Optional[bool],
     progress: Optional[bool],
     color: Optional[bool],
-    log_level: Optional[str],
+    debug: Optional[bool],
+    warning: Optional[bool],
 ):
     """Scan DIRECTORY for duplicate files of any type."""
     # Load configuration for defaults via IoC container when available so
@@ -323,6 +518,12 @@ def scan(
         click.echo("Using built-in defaults.", err=True)
         config_settings = ConfigManager.DEFAULT_CONFIG.copy()
 
+    # Detect whether flags were explicitly provided by the caller.
+    verbose_provided = verbose is not None
+    debug_provided = debug is not None
+    warning_provided = warning is not None
+    # info flag removed; logger level comes from container configuration
+
     # Use config defaults where CLI options weren't specified
     if recursive is None:
         recursive = config_settings.get("recursive_scan", True)
@@ -340,6 +541,28 @@ def scan(
         pattern_list = None
 
     # Run the scan
+    # Allow the specific pair --debug + --warning by emitting a warning and
+    # preferring DEBUG; only error when --verbose is combined with another
+    # verbosity flag.
+    # Enforce at most one level-switch across verbose/debug/warning
+    try:
+        # Allow explicit debug+warning only when both were explicitly requested and prefer debug
+        if debug_provided and warning_provided and debug and warning:
+            click.echo("Warning: both --debug and --warning specified; using --debug (most verbose)", err=True)
+            debug = True
+            warning = False
+        elif sum(bool(x) for x in (verbose_provided and verbose, debug_provided and debug, warning_provided and warning)) > 1:
+            click.echo(
+                "Error: At most one of --verbose, --debug, or --warning may be specified; choose one.",
+                err=True,
+            )
+            sys.exit(2)
+    except Exception:
+        pass
+
+    if debug and not verbose:
+        verbose = True
+
     _run_scan(
         directory,
         db_path,
@@ -351,7 +574,8 @@ def scan(
         progress,
         color,
         config_manager,
-        log_level,
+        debug,
+        warning,
     )
 
 
@@ -366,7 +590,8 @@ def _run_scan(
     progress: Optional[bool],
     color: Optional[bool],
     config_manager: ConfigManager,
-    log_level: Optional[str] = None,
+    debug: Optional[bool] = None,
+    warning: Optional[bool] = None,
 ) -> None:
     """Execute the universal file duplicate scan."""
     try:
@@ -388,16 +613,22 @@ def _run_scan(
         # can be swapped or configured centrally (IoC). The container is
         # lightweight and provides a ProgressReporter factory.
         container = Container()
-        # If CLI provided a log level, propagate it into the container
-        # configuration before the logger singleton is created so the
-        # container-provided logger and injected loggers honor the setting.
-        if log_level:
-            try:
-                # Use providers.Configuration API to set the nested value
-                container.config.logger.level.from_value(log_level.upper())
-            except Exception:
-                # Non-fatal if configuration wiring isn't present
-                pass
+        # (Mutual-exclusivity of --verbose/--debug is enforced at the
+        # user-facing entrypoint; do not re-check here to avoid false
+        # positives when debug implies verbose internally.)
+        # Configure logger level from debug/warning flags: DEBUG, WARNING, else INFO
+        try:
+            # Determine logger level from the container logger instance so
+            # internal functions do not rely on CLI flag parameters. This
+            # keeps configuration centralized and easier to test.
+            logger = container.logger()
+            level = getattr(logger, 'level', None)
+            # If the container logger has no explicit level, default to INFO
+            if level is None:
+                level = logging.INFO
+        except Exception:
+            logger = None
+            level = logging.INFO
         progress_reporter = container.progress_reporter_factory(enabled=show_progress)
         # Build DB and hasher from the container when available so tests and
         # callers can provide alternate implementations. `database` provider
@@ -417,19 +648,57 @@ def _run_scan(
         except Exception:
             hasher_fn = None
 
+        # Obtain the container-provided logger and, when verbose mode is
+        # requested (or the user set log-level to INFO/DEBUG), ensure the
+        # logger writes human-visible INFO/DEBUG messages to STDOUT so CLI
+        # runs and tests that capture stdout see the per-file listings.
+        try:
+            logger = container.logger()
+            # Route INFO/DEBUG to stdout (or Rich Console) unless logger level is WARNING or higher
+            use_stdout = verbose or (level <= logging.INFO)
+
+            if use_stdout:
+                # Reconfigure logger to use Rich or stdout StreamHandler
+                _reconfigure_logger_for_stdout(logger)
+                # If Rich is available, try to provide the same Console to the
+                # ProgressReporter so progress and logs share the render surface.
+                try:
+                    from rich.console import Console
+
+                    # If the logger has a RichHandler, extract its console if possible
+                    rich_console = None
+                    for h in logger.handlers:
+                        if h.__class__.__name__ == "RichHandler":
+                            # RichHandler stores the console attribute
+                            rich_console = getattr(h, "console", None)
+                            break
+                    # If we found a Rich console, pass it to the progress reporter
+                    if rich_console is not None:
+                        try:
+                            progress_reporter = container.progress_reporter_factory(enabled=show_progress, console=rich_console)
+                        except TypeError:
+                            # ProgressReporter factory does not accept a console kwarg
+                            progress_reporter = container.progress_reporter_factory(enabled=show_progress)
+                    else:
+                        progress_reporter = container.progress_reporter_factory(enabled=show_progress)
+                except Exception:
+                    progress_reporter = container.progress_reporter_factory(enabled=show_progress)
+        except Exception:
+            # Fall back to None if logger creation/reconfiguration fails
+            logger = None
+
         scanner = FileScanner(
             db_path=db_path,
             patterns=patterns,
             recursive=recursive,
             db=db_instance,
             hasher=hasher_fn,
-            logger=container.logger(),
+            logger=logger,
         )
 
-        # Construct DuplicateDetector with injected ProgressReporter so the
-        # detector can use a shared reporter instance without callers needing
-        # to pass it on every call. Backwards-compatible: per-call reporter
-        # argument still takes precedence.
+    # Construct DuplicateDetector with injected ProgressReporter so the
+    # detector can use a shared reporter instance without callers needing
+    # to pass it on every call. Per-call reporter argument still takes precedence.
         detector = DuplicateDetector(progress_reporter=progress_reporter)
         exporter = ResultExporter()
 
@@ -452,8 +721,9 @@ def _run_scan(
             verbose=verbose,
         )
 
-        # Output results (quiet mode shows basic results, verbose shows detailed)
-        _display_text_results(scan_result, verbose, color, directory)
+    # Output results (quiet mode shows basic results, verbose shows group summaries,
+    # debug shows per-file details and discovered-file samples)
+        _display_text_results(scan_result, verbose, debug, color, directory)
 
         # Export if requested
         if export:
@@ -644,7 +914,7 @@ def _perform_scan(
 
 
 def _display_text_results(
-    scan_result: ScanResult, verbose: bool, color: bool, scan_directory: Path
+    scan_result: ScanResult, verbose: bool, debug: bool, color: bool, scan_directory: Path
 ) -> None:
     """Display scan results in human-readable text format."""
     metadata = scan_result.metadata
@@ -683,6 +953,28 @@ def _display_text_results(
         click.echo(f"Scanned: {info(', '.join(str(p) for p in metadata.scan_paths))}")
         click.echo(f"Files found: {info(str(metadata.total_files_found))}")
 
+        # When verbose, show group summaries; when debug is enabled show a
+        # short sample of discovered file paths (relative to the scanned
+        # directory) so recursive scans clearly show files found in
+        # subdirectories for integration tests and users.
+        try:
+            if debug:
+                base = metadata.scan_paths[0] if metadata.scan_paths else scan_directory
+                base_path = Path(base)
+                shown = 0
+                for p in (base_path.rglob("*") if metadata.recursive else base_path.iterdir()):
+                    try:
+                        if p.is_file():
+                            click.echo(f"  - {get_relative_path(p)}")
+                            shown += 1
+                            if shown >= 50:
+                                break
+                    except Exception:
+                        continue
+        except Exception:
+            # Best-effort only; do not fail on printing
+            pass
+
         if metadata.end_time and metadata.start_time:
             duration = (metadata.end_time - metadata.start_time).total_seconds()
             click.echo(f"Scan duration: {info(f'{duration:.2f} seconds')}")
@@ -705,8 +997,12 @@ def _display_text_results(
                 click.echo(f"  Size: {format_size(group.file_size)} each")
                 click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
 
-                for file in group.files:
-                    click.echo(f"    {get_relative_path(file.path)}")
+                # Only list individual files when debug mode is enabled;
+                # verbose mode shows group summaries for easier debugging at
+                # the group level without overwhelming test output.
+                if debug:
+                    for file in group.files:
+                        click.echo(f"    {get_relative_path(file.path)}")
         else:
             click.echo(f"\n{success('No duplicate groups found.')}")
 
@@ -721,10 +1017,11 @@ def _display_text_results(
                     f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})"
                 )
 
-                for file in group.files:
-                    click.echo(
-                        f"    {get_relative_path(file.path)} ({format_size(file.size)})"
-                    )
+                if debug:
+                    for file in group.files:
+                        click.echo(
+                            f"    {get_relative_path(file.path)} ({format_size(file.size)})"
+                        )
         else:
             click.echo(f"\n{success('No potential matches found.')}")
     else:
@@ -748,6 +1045,8 @@ def _display_text_results(
 
 # Add config command group
 main.add_command(config)
+# Add db maintenance commands
+main.add_command(db_commands)
 
 
 if __name__ == "__main__":

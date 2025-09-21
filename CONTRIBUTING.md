@@ -46,7 +46,7 @@ Series-detection is intentionally conservative and audit-only: files that look l
 
 Key points for contributors:
 
-- Use `Container()` to obtain a configured logger when writing new modules so the CLI `--log-level` option propagates to the component.
+- Use `Container()` to obtain a configured logger when writing new modules so the CLI `--debug`/`--warning` flags propagate to the component.
 - Do not skip hashing solely based on series-like heuristics; hashing and size checks remain the source of truth for confirmed duplicates.
 - When introducing heuristics, make them audit-only by default and record the rationale in scan metadata so reviewers can decide programmatically or manually.
 
