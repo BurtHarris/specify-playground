@@ -85,7 +85,7 @@ def check_python_version():
 check_python_version()
 
 # Now safe to import our modules
-from ..services.file_scanner import FileScanner, DirectoryNotFoundError
+from ..services.file_scanner import FileScanner
 from ..services.duplicate_detector import DuplicateDetector
 from ..services.progress_reporter import ProgressReporter
 from ..services.result_exporter import ResultExporter, DiskSpaceError
@@ -167,13 +167,17 @@ def main(ctx: click.Context):
 
 @main.command()
 @click.argument('directory', type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True, path_type=Path))
+@click.option('--db-path', type=click.Path(dir_okay=False, writable=False, path_type=Path), default=None,
+              help='Path to SQLite DB for caching hashes (default: in-memory)')
+@click.option('--patterns', type=str, default=None,
+              help='Comma-separated glob patterns to include (e.g. "*.mp4,*.mkv")')
 @click.option('--recursive/--no-recursive', default=None, help='Scan subdirectories recursively (default: from config)')
 @click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
 @click.option('--threshold', type=float, default=None, help='Fuzzy matching threshold (0.0-1.0) (default: from config)')
 @click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
-def scan(directory: Path, recursive: Optional[bool], export: Optional[Path], 
+def scan(directory: Path, db_path: Optional[Path], patterns: Optional[str], recursive: Optional[bool], export: Optional[Path], 
     threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
     """Scan DIRECTORY for duplicate files of any type."""
     # Load configuration for defaults
@@ -195,11 +199,17 @@ def scan(directory: Path, recursive: Optional[bool], export: Optional[Path],
     if progress is None and config_settings.get('show_progress') is not None:
         progress = config_settings.get('show_progress')
     
+    # Normalize patterns argument
+    if patterns:
+        pattern_list = [p.strip() for p in patterns.split(',') if p.strip()]
+    else:
+        pattern_list = None
+
     # Run the scan
-    _run_scan(directory, recursive, export, threshold, verbose, progress, color, config_manager)
+    _run_scan(directory, db_path, pattern_list, recursive, export, threshold, verbose, progress, color, config_manager)
 
 
-def _run_scan(directory: Path, recursive: bool, export: Optional[Path], 
+def _run_scan(directory: Path, db_path: Optional[Path], patterns: Optional[list], recursive: bool, export: Optional[Path], 
               threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool],
               config_manager: ConfigManager) -> None:
     """Execute the universal file duplicate scan."""
@@ -219,7 +229,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
 
         # Initialize services
         progress_reporter = ProgressReporter(enabled=show_progress)
-        scanner = FileScanner()
+        scanner = FileScanner(db_path=db_path, patterns=patterns, recursive=recursive)
         detector = DuplicateDetector()
         exporter = ResultExporter()
 
