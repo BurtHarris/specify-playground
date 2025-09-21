@@ -11,15 +11,26 @@ if command -v black >/dev/null 2>&1; then
   black --version
   black --check . || FAILED=1
 else
-  echo "black not installed; skipping black check"
+  # Try via python -m (helps on Windows where entrypoints may not be on PATH)
+  if python -m black --version >/dev/null 2>&1; then
+    python -m black --check . || FAILED=1
+  else
+    echo "black not installed; skipping black check"
+  fi
 fi
 
 echo "=== running flake8 ==="
 if command -v flake8 >/dev/null 2>&1; then
   flake8 || FAILED=1
 else
-  echo "flake8 not installed; skipping flake8"
+  # Try via python -m
+  if python -m flake8 >/dev/null 2>&1; then
+    python -m flake8 || FAILED=1
+  else
+    echo "flake8 not installed; skipping flake8"
+  fi
 fi
+
 
 if [ "$FAILED" -ne 0 ]; then
   echo "One or more checks failed"
