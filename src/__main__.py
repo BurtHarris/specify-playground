@@ -35,12 +35,12 @@ def _maybe_insert_scan_subcommand():
 
     # Don't modify if a recognized subcommand is already present
     # (e.g., 'scan' or 'config').
-    recognized = set(getattr(main, 'commands', {}).keys())
+    recognized = set(getattr(main, "commands", {}).keys())
 
     # Search for the first token that looks like an existing directory and
     # is not an option (doesn't start with '-') and not a recognized command.
     for i, token in enumerate(sys.argv[1:], start=1):
-        if token.startswith('-'):
+        if token.startswith("-"):
             continue
         if token in recognized:
             # Found an explicit subcommand; nothing to do.
@@ -52,7 +52,7 @@ def _maybe_insert_scan_subcommand():
                 # directory) to immediately after the inserted 'scan'
                 # token so the subcommand will parse them. This handles
                 # invocations like: python -m src --recursive --export out.yaml <dir>
-                scan_options_with_value = {'--export', '--threshold'}
+                scan_options_with_value = {"--export", "--threshold"}
 
                 # Collect indices of tokens between program name and dir
                 pre_indices = list(range(1, i))
@@ -66,7 +66,7 @@ def _maybe_insert_scan_subcommand():
                         if j + 1 < i:
                             move_indices.append(j + 1)
                         j += 2
-                    elif tok.startswith('-'):
+                    elif tok.startswith("-"):
                         move_indices.append(j)
                         j += 1
                     else:
@@ -76,7 +76,11 @@ def _maybe_insert_scan_subcommand():
                 moved = [sys.argv[idx] for idx in sorted(move_indices)]
 
                 # Build remaining tokens (excluding moved ones)
-                remaining = [sys.argv[k] for k in range(len(sys.argv)) if k not in move_indices]
+                remaining = [
+                    sys.argv[k]
+                    for k in range(len(sys.argv))
+                    if k not in move_indices
+                ]
 
                 # Find new index of the directory token in remaining
                 # (it shifts left by count of removed tokens before it)
@@ -85,7 +89,7 @@ def _maybe_insert_scan_subcommand():
                 # Locate dir in remaining (first non-option, non-command token)
                 r_dir_index = None
                 for ri, rt in enumerate(remaining[1:], start=1):
-                    if not rt.startswith('-') and rt not in recognized:
+                    if not rt.startswith("-") and rt not in recognized:
                         r_dir_index = ri
                         break
 
@@ -94,14 +98,27 @@ def _maybe_insert_scan_subcommand():
                     insert_at = i
                     remaining = sys.argv[:]
                     moved = []
-                    new_argv = remaining[:insert_at] + ['scan'] + moved + remaining[insert_at:]
+                    new_argv = (
+                        remaining[:insert_at]
+                        + ["scan"]
+                        + moved
+                        + remaining[insert_at:]
+                    )
                 else:
-                    new_argv = [remaining[0]] + remaining[1:r_dir_index] + ['scan'] + moved + remaining[r_dir_index:]
+                    new_argv = (
+                        [remaining[0]]
+                        + remaining[1:r_dir_index]
+                        + ["scan"]
+                        + moved
+                        + remaining[r_dir_index:]
+                    )
 
                 sys.argv[:] = new_argv
 
-                if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
-                    print(f"[__main__] relocated options and inserted 'scan'; argv={sys.argv}")
+                if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
+                    print(
+                        f"[__main__] relocated options and inserted 'scan'; argv={sys.argv}"
+                    )
                 return
         except Exception:
             continue
@@ -109,9 +126,9 @@ def _maybe_insert_scan_subcommand():
 
 if __name__ == "__main__":
     # Optionally print argv before/after insertion for debugging
-    if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+    if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
         print(f"[__main__] before insertion argv={sys.argv}")
     _maybe_insert_scan_subcommand()
-    if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+    if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
         print(f"[__main__] after insertion argv={sys.argv}")
     main()

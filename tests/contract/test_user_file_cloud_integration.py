@@ -8,13 +8,14 @@ mutual consistency). Implementation is expected to evolve; these contract tests
 help guide the API.
 """
 
-import pytest
 from pathlib import Path
 
 from src.models.user_file import UserFile
+
 try:
     from src.models.cloud_file_status import CloudFileStatus
 except Exception:
+
     class CloudFileStatus:
         LOCAL = "local"
         CLOUD_ONLY = "cloud_only"
@@ -25,9 +26,9 @@ class TestUserFileCloudIntegrationContract:
 
     def test_user_file_has_cloud_properties(self):
         user = UserFile(Path("temp_test/video1.mp4"))
-        assert hasattr(user, 'cloud_status')
-        assert hasattr(user, 'is_cloud_only')
-        assert hasattr(user, 'is_local')
+        assert hasattr(user, "cloud_status")
+        assert hasattr(user, "is_cloud_only")
+        assert hasattr(user, "is_local")
 
     def test_is_local_and_is_cloud_only_are_boolean(self):
         user = UserFile(Path("temp_test/video1.mp4"))
@@ -38,7 +39,11 @@ class TestUserFileCloudIntegrationContract:
         user = UserFile(Path("temp_test/video1.mp4"))
         status = user.cloud_status
         # Accept either enum-like object or string for contract
-        assert (isinstance(status, str) or hasattr(status, 'name') or hasattr(status, 'value'))
+        assert (
+            isinstance(status, str)
+            or hasattr(status, "name")
+            or hasattr(status, "value")
+        )
 
     def test_mutual_exclusivity_of_booleans(self):
         user = UserFile(Path("temp_test/video1.mp4"))
@@ -53,6 +58,4 @@ class TestUserFileCloudIntegrationContract:
             _ = user.cloud_status
         except Exception:
             # If detection raises, that's acceptable at contract stage, but attribute must exist
-            assert hasattr(user, 'cloud_status')
-
-
+            assert hasattr(user, "cloud_status")

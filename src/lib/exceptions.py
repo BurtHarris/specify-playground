@@ -8,6 +8,8 @@ class DatabaseCorruptError(DatabaseError):
 
 class DatabaseNotConfiguredError(DatabaseError):
     """Raised when callers attempt DB operations without configuring a path."""
+
+
 class DatabaseError(Exception):
     """Base class for database-related errors."""
 

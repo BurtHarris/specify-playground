@@ -18,7 +18,7 @@ import builtins
 FileScanner = VideoFileScanner
 
 # Put compatibility symbols on builtins for legacy tests that expect them
-setattr(builtins, 'VideoFile', VideoFile)
-setattr(builtins, 'FileScanner', FileScanner)
+setattr(builtins, "VideoFile", VideoFile)
+setattr(builtins, "FileScanner", FileScanner)
 
 __all__ = ["VideoFileScanner", "VideoFile", "FileScanner"]

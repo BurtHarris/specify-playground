@@ -1,4 +1,3 @@
-from pathlib import Path
 from src.services.file_scanner import FileScanner
 from src.services.file_database import InMemoryFileDatabase
 
@@ -11,23 +10,22 @@ def test_file_scanner_hashes_and_caches(tmp_path, monkeypatch):
     b.write_bytes(b"another file")
 
     # force scanner to use an in-memory DB instance
-    monkeypatch.setattr('src.services.file_scanner.get_database', lambda db_path=None: InMemoryFileDatabase())
+    monkeypatch.setattr(
+        "src.services.file_scanner.get_database",
+        lambda db_path=None: InMemoryFileDatabase(),
+    )
 
     scanner = FileScanner(db_path=None, patterns=["*.txt"], recursive=False)
     results = scanner.scan([tmp_path])
 
-    paths = {r['path']: r for r in results}
+    paths = {r["path"]: r for r in results}
     assert str(a) in paths
     assert str(b) in paths
-    assert paths[str(a)]['hash'] is not None
-    assert paths[str(b)]['hash'] is not None
-import os
+    assert paths[str(a)]["hash"] is not None
+    assert paths[str(b)]["hash"] is not None
+
+
 from types import SimpleNamespace
-from pathlib import Path
-
-import pytest
-
-from src.services.file_scanner import FileScanner
 
 
 def test_validate_file_nonexistent(tmp_path):
@@ -59,13 +57,13 @@ def test_should_include_file_cloud_filters():
     cloud = SimpleNamespace(is_local=False, is_cloud_only=True)
 
     # 'all' includes both
-    assert scanner._should_include_file(local, 'all')
-    assert scanner._should_include_file(cloud, 'all')
+    assert scanner._should_include_file(local, "all")
+    assert scanner._should_include_file(cloud, "all")
 
     # 'local' only includes local files
-    assert scanner._should_include_file(local, 'local')
-    assert not scanner._should_include_file(cloud, 'local')
+    assert scanner._should_include_file(local, "local")
+    assert not scanner._should_include_file(cloud, "local")
 
     # 'cloud-only' only includes cloud-only
-    assert not scanner._should_include_file(local, 'cloud-only')
-    assert scanner._should_include_file(cloud, 'cloud-only')
+    assert not scanner._should_include_file(local, "cloud-only")
+    assert scanner._should_include_file(cloud, "cloud-only")

@@ -6,7 +6,9 @@ from pathlib import Path
 
 MIGRATIONS = [
     # Example: (version, SQL)
-    ("001_initial", """
+    (
+        "001_initial",
+        """
     CREATE TABLE IF NOT EXISTS files (
         id INTEGER PRIMARY KEY,
         path TEXT UNIQUE,
@@ -20,9 +22,11 @@ MIGRATIONS = [
     );
     CREATE INDEX IF NOT EXISTS idx_files_path ON files(path);
     CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash);
-    """),
+    """,
+    ),
     # Add further migrations as needed
 ]
+
 
 def apply_migrations(db_path: Path):
     conn = sqlite3.connect(str(db_path))
@@ -32,8 +36,10 @@ def apply_migrations(db_path: Path):
     conn.commit()
     conn.close()
 
+
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
         print("Usage: python migrate.py <db_path>")
         sys.exit(1)

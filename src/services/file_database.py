@@ -7,7 +7,7 @@ set_cached_hash). Full implementation will follow in later tasks.
 
 import sqlite3
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from src.lib.exceptions import DatabaseCorruptError, DatabaseNotConfiguredError
 
@@ -38,7 +38,9 @@ class FileDatabase:
         cur.executescript(sql.read_text())
         self._conn.commit()
 
-    def get_cached_hash(self, path: Path, size: int, mtime: float) -> Optional[str]:
+    def get_cached_hash(
+        self, path: Path, size: int, mtime: float
+    ) -> Optional[str]:
         """Return cached hash if present and matching size+mtime, else None."""
         if self._conn is None:
             self.connect()
@@ -54,7 +56,9 @@ class FileDatabase:
         row = cur.fetchone()
         return row["hash"] if row else None
 
-    def set_cached_hash(self, path: Path, size: int, mtime: float, hash_value: str) -> None:
+    def set_cached_hash(
+        self, path: Path, size: int, mtime: float, hash_value: str
+    ) -> None:
         if self._conn is None:
             self.connect()
         cur = self._conn.cursor()
@@ -89,7 +93,9 @@ class InMemoryFileDatabase(FileDatabase):
         # No-op for in-memory store
         return
 
-    def get_cached_hash(self, path: Path, size: int, mtime: float) -> Optional[str]:
+    def get_cached_hash(
+        self, path: Path, size: int, mtime: float
+    ) -> Optional[str]:
         rec = self._store.get(str(path))
         if not rec:
             return None
@@ -98,7 +104,9 @@ class InMemoryFileDatabase(FileDatabase):
             return r_hash
         return None
 
-    def set_cached_hash(self, path: Path, size: int, mtime: float, hash_value: str) -> None:
+    def set_cached_hash(
+        self, path: Path, size: int, mtime: float, hash_value: str
+    ) -> None:
         self._store[str(path)] = (int(size), float(mtime), hash_value)
 
 

@@ -7,7 +7,6 @@ while the codebase has migrated to `UserFile` and `sample_user_files`.
 These shims are intentionally lightweight and only used for tests; they do
 not change the production API.
 """
-from pathlib import Path
 import pytest
 
 from src.models.user_file import UserFile
@@ -26,11 +25,10 @@ def sample_video_files(request, tmp_path):
     """
     # Create a small set of temporary files and return UserFile instances.
     files = []
-    for i, suffix in enumerate(['.mp4', '.mkv', '.mov']):
+    for i, suffix in enumerate([".mp4", ".mkv", ".mov"]):
         p = tmp_path / f"movie{i}{suffix}"
         p.write_bytes(b"test")
         files.append(UserFile(p))
     # Some tests expect a tuple (files, hash_value) in specific places; the
     # contract tests usually just need files, so return the list.
     return files
-

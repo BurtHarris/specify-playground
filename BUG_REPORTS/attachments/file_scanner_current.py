@@ -13,9 +13,17 @@ class DirectoryNotFoundError(Exception):
 
 class FileScanner:
     def __init__(self, extensions: Optional[Set[str]] = None):
-        self.extensions = {e.lower() for e in extensions} if extensions else None
+        self.extensions = (
+            {e.lower() for e in extensions} if extensions else None
+        )
 
-    def scan_directory(self, directory: Path, recursive: bool = True, metadata=None, progress_reporter=None) -> Iterator[UserFile]:
+    def scan_directory(
+        self,
+        directory: Path,
+        recursive: bool = True,
+        metadata=None,
+        progress_reporter=None,
+    ) -> Iterator[UserFile]:
         try:
             directory = Path(directory).resolve()
         except Exception:
@@ -24,11 +32,19 @@ class FileScanner:
         if not directory.exists():
             raise DirectoryNotFoundError(f"Directory not found: {directory}")
         if not directory.is_dir():
-            raise DirectoryNotFoundError(f"Path is not a directory: {directory}")
+            raise DirectoryNotFoundError(
+                f"Path is not a directory: {directory}"
+            )
         if not os.access(directory, os.R_OK):
-            raise PermissionError(f"Permission denied accessing directory: {directory}")
+            raise PermissionError(
+                f"Permission denied accessing directory: {directory}"
+            )
 
-        iterator = self._scan_recursive(directory) if recursive else self._scan_non_recursive(directory)
+        iterator = (
+            self._scan_recursive(directory)
+            if recursive
+            else self._scan_non_recursive(directory)
+        )
 
         files = list(iterator)
 
@@ -36,7 +52,7 @@ class FileScanner:
             try:
                 return str(p)
             except Exception:
-                return getattr(p, 'name', repr(p))
+                return getattr(p, "name", repr(p))
 
         files = sorted(files, key=_safe_key)
 
@@ -73,7 +89,9 @@ class FileScanner:
                     except Exception:
                         label = str(p)
                     try:
-                        progress_reporter.update_progress(processed, f"Processing: {label}")
+                        progress_reporter.update_progress(
+                            processed, f"Processing: {label}"
+                        )
                     except Exception:
                         pass
 
@@ -81,7 +99,9 @@ class FileScanner:
             except (FileNotFoundError, PermissionError, ValueError):
                 if metadata is not None:
                     try:
-                        metadata.errors.append({"file": str(p), "error": "access"})
+                        metadata.errors.append(
+                            {"file": str(p), "error": "access"}
+                        )
                     except Exception:
                         pass
             finally:
@@ -136,7 +156,7 @@ class FileScanner:
         try:
             p = file_path if isinstance(file_path, Path) else Path(file_path)
             try:
-                if hasattr(p, '_flavour'):
+                if hasattr(p, "_flavour"):
                     p = p.resolve()
             except Exception:
                 pass

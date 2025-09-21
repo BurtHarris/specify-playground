@@ -12,9 +12,9 @@ from .scan_metadata import ScanMetadata
 from .scan_result import ScanResult
 
 __all__ = [
-    'UserFile',
-    'DuplicateGroup', 
-    'PotentialMatchGroup',
-    'ScanMetadata',
-    'ScanResult'
+    "UserFile",
+    "DuplicateGroup",
+    "PotentialMatchGroup",
+    "ScanMetadata",
+    "ScanResult",
 ]

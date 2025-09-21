@@ -12,10 +12,10 @@ from .result_exporter import ResultExporter, DiskSpaceError
 from .video_file_scanner import VideoFileScanner
 
 __all__ = [
-    'FileScanner',
-    'VideoFileScanner',
-    'DuplicateDetector',
-    'ProgressReporter',
-    'ResultExporter',
-    'DiskSpaceError'
+    "FileScanner",
+    "VideoFileScanner",
+    "DuplicateDetector",
+    "ProgressReporter",
+    "ResultExporter",
+    "DiskSpaceError",
 ]

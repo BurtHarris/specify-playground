@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 import time
 
@@ -18,7 +17,9 @@ def test_cross_scan_duplicate_detection(tmp_path):
 
     fixture_dir = Path("tests/fixtures/sample_files")
     if not fixture_dir.exists():
-        pytest.skip("No sample fixture directory present at tests/fixtures/sample_files/")
+        pytest.skip(
+            "No sample fixture directory present at tests/fixtures/sample_files/"
+        )
 
     runner = CliRunner()
 

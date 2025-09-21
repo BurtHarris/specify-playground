@@ -20,7 +20,7 @@ class UserFile:
         # not immediately fail.
         # If the caller passed a mocked or Path-like object used in tests,
         # preserve it to allow the tests to set .stat(), .suffix, etc.
-        if hasattr(path, '_mock_name'):
+        if hasattr(path, "_mock_name"):
             resolved = path
         else:
             path_obj = Path(path)
@@ -42,7 +42,7 @@ class UserFile:
         try:
             self.extension = resolved.suffix.lower()
         except Exception:
-            self.extension = ''
+            self.extension = ""
 
         # Expose a convenient public alias expected by parts of the codebase
         # and tests.
@@ -69,12 +69,14 @@ class UserFile:
             return self._hash
         hasher = hashlib.blake2b()
         try:
-            with open(self._path, 'rb') as f:
+            with open(self._path, "rb") as f:
                 chunk_size = 65536
                 while chunk := f.read(chunk_size):
                     hasher.update(chunk)
         except PermissionError:
-            raise PermissionError(f"Permission denied reading file: {self._path}")
+            raise PermissionError(
+                f"Permission denied reading file: {self._path}"
+            )
         except OSError as e:
             raise OSError(f"Error reading file {self._path}: {e}")
         self._hash = hasher.hexdigest()
@@ -87,9 +89,9 @@ class UserFile:
             True if file is readable, False otherwise
         """
         try:
-            if hasattr(self._path, '_mock_name'):
+            if hasattr(self._path, "_mock_name"):
                 return True
-            with open(self._path, 'rb') as f:
+            with open(self._path, "rb") as f:
                 f.read(1)
             return True
         except (PermissionError, OSError):
@@ -160,7 +162,9 @@ class UserFile:
     @property
     def last_modified(self):
         if self._last_modified is None:
-            self._last_modified = datetime.fromtimestamp(self._path.stat().st_mtime)
+            self._last_modified = datetime.fromtimestamp(
+                self._path.stat().st_mtime
+            )
         return self._last_modified
 
     def to_dict(self) -> dict:
@@ -170,14 +174,14 @@ class UserFile:
             Dictionary with file information including cloud status
         """
         return {
-            'path': str(self._path),
-            'size': self.size,
-            'extension': self.extension,
-            'last_modified': self.last_modified.isoformat() + 'Z',
-            'hash': self._hash,  # May be None if not computed
-            'cloud_status': self.cloud_status.value,
-            'is_cloud_only': self.is_cloud_only,
-            'is_local': self.is_local
+            "path": str(self._path),
+            "size": self.size,
+            "extension": self.extension,
+            "last_modified": self.last_modified.isoformat() + "Z",
+            "hash": self._hash,  # May be None if not computed
+            "cloud_status": self.cloud_status.value,
+            "is_cloud_only": self.is_cloud_only,
+            "is_local": self.is_local,
         }
 
 
@@ -191,6 +195,7 @@ except Exception:
 # Also expose these names in builtins for legacy tests that reference them
 try:
     import builtins
+
     builtins.UserFile = UserFile
     builtins.VideoFile = UserFile
 except Exception:

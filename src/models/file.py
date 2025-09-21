@@ -20,12 +20,18 @@ class UserFile:
     get_filename_without_extension, last_modified, extension, to_dict, etc.).
     """
 
-    def __init__(self, path: Path, size: Optional[int] = None, is_local: bool = True, cloud_status: Optional[str] = None):
+    def __init__(
+        self,
+        path: Path,
+        size: Optional[int] = None,
+        is_local: bool = True,
+        cloud_status: Optional[str] = None,
+    ):
         # Accept either Path, a path-like object, or strings. Preserve
         # test doubles (Mock(spec=Path)) and any object that provides
         # __fspath__ to avoid converting them into real Path instances
         # which would lose their patched behaviors in tests.
-        if isinstance(path, Path) or hasattr(path, '_mock_name'):
+        if isinstance(path, Path) or hasattr(path, "_mock_name"):
             path_obj = path
         else:
             # For plain string/bytes or other non-mock path-likes, coerce
@@ -44,7 +50,9 @@ class UserFile:
                 # If passed as string, convert to CloudFileStatus
                 if isinstance(cloud_status, str):
                     try:
-                        self._impl.cloud_status = CloudFileStatus.from_string(cloud_status)
+                        self._impl.cloud_status = CloudFileStatus.from_string(
+                            cloud_status
+                        )
                     except ValueError:
                         self._impl.cloud_status = cloud_status
                 else:
@@ -76,4 +84,3 @@ class UserFile:
             return str(self._impl._path) < str(other._impl._path)
         # allow comparison with underlying impls
         return str(self._impl._path) < str(other)
-

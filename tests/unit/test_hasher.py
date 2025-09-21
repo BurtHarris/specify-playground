@@ -1,5 +1,3 @@
-import tempfile
-from pathlib import Path
 from src.services.file_hasher import stream_hash, hash_stream_from_bytes_iter
 
 
