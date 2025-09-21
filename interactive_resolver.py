@@ -227,6 +227,9 @@ def show_auto_decision(files):
     scores.sort(reverse=True)
 
     # Show all files with their scores
+    # Determine the best index (highest score) explicitly to avoid
+    # referencing an undefined variable in case sorting reorders entries.
+    best_index = scores[0][1]
     for rank, (score, i, filename, reasons) in enumerate(scores, 1):
         status = "KEEP" if rank == 1 else "DELETE"
         size_mb = get_file_size_mb(files[i]["size_bytes"])
@@ -234,9 +237,7 @@ def show_auto_decision(files):
         print(
             f"      Score: {score:+3d} - {', '.join(reasons) if reasons else 'no bonuses/penalties'}"
         )
-    print(
-        f"RECOMMENDATION: Keep file #{best_index + 1} (highest score: {scores[0][0]})"
-    )
+    print(f"RECOMMENDATION: Keep file #{best_index + 1} (highest score: {scores[0][0]})")
 
     return best_index
 

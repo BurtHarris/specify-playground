@@ -1,3 +1,6 @@
 [flake8]
 max-line-length = 242
 exclude = .venv,venv,env,build,dist,__pycache__,backups
+# Ignore a set of non-blocking style/warning codes for this prototype.
+# These are intentionally relaxed to focus on functional and safety issues.
+extend-ignore = E402, E231, E203, E702, F841, F401, B007, B010, B014

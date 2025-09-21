@@ -705,15 +705,6 @@ def _display_text_results(
             click.echo("No potential matches found.")
 
 
-def format_size(bytes_size: int) -> str:
-    """Format file size in human-readable units."""
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if bytes_size < 1024:
-            return f"{bytes_size:.1f} {unit}"
-        bytes_size /= 1024
-    return f"{bytes_size:.1f} PB"
-
-
 # Add config command group
 main.add_command(config)
 

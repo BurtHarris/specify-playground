@@ -1,4 +1,5 @@
-from typing import Protocol, runtime_checkable, Any, List
+from typing import Protocol, runtime_checkable, Any
+import pathlib
 
 
 @runtime_checkable
@@ -11,7 +12,7 @@ class LoggerProtocol(Protocol):
     to statically validate overrides.
     """
 
-    handlers: List[Any]
+    handlers: list[Any]
 
     def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
         ...
