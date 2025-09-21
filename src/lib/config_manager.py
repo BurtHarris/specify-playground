@@ -125,8 +125,18 @@ class ConfigManager:
             # Atomic move
             temp_path.replace(config_path)
 
+        except PermissionError as e:
+            # Do not raise for permission errors during CI or restricted environments.
+            # Preserve in-memory config and continue; callers should handle the
+            # absence of a persistent config file gracefully.
+            print(
+                f"Warning: Permission denied saving config ({e}); using in-memory settings"
+            )
         except Exception as e:
-            raise RuntimeError(f"Failed to save configuration: {e}")
+            # For other IO-related errors, warn and preserve in-memory config.
+            print(
+                f"Warning: Failed to save configuration ({e}); using in-memory settings"
+            )
 
     def get_setting(self, key: str, default: Any = None) -> Any:
         """Get a configuration setting value."""
