@@ -88,16 +88,17 @@ class DuplicateDetector:
             return []
 
         if verbose:
-            # Keep concise high-level info via logger
+            # Keep concise high-level info via logger, but demote noisy
+            # operational lines to DEBUG so that verbose CLI output remains
+            # readable (the CLI prints the user-facing summary itself).
             try:
-                self._logger.info(f"Analyzing {len(files)} files for duplicates...")
+                self._logger.debug(f"Analyzing {len(files)} files for duplicates...")
                 cloud_only_count = sum(1 for f in files if f.is_cloud_only)
                 local_count = len(files) - cloud_only_count
-                self._logger.info(f"  Cloud-only files: {cloud_only_count}")
-                self._logger.info(f"  Local files: {local_count}")
+                self._logger.debug(f"  Cloud-only files: {cloud_only_count}")
+                self._logger.debug(f"  Local files: {local_count}")
                 # Provide per-file listing at DEBUG so individual file lines only
-                # appear when DEBUG logging is enabled; verbose CLI still shows
-                # summaries at INFO level.
+                # appear when DEBUG logging is enabled.
                 for user_file in files:
                     cloud_status = "CLOUD-ONLY" if user_file.is_cloud_only else "LOCAL"
                     try:
@@ -126,8 +127,10 @@ class DuplicateDetector:
             groups_with_multiple = sum(
                 1 for file_list in size_groups.values() if len(file_list) >= 2
             )
-            self._logger.info(f"Found {groups_with_multiple} size groups with potential duplicates")
-            # series count will be reported after analysis when known
+            self._logger.debug(
+                f"Found {groups_with_multiple} size groups with potential duplicates"
+            )
+        # series count will be reported after analysis when known
         # NOTE: Do NOT skip hashing for series-numbered groups.
         # If sizes match, always run the hash. Only treat as series if hashes differ.
         # This is now enforced: we do NOT skip hashing for series-numbered groups.
@@ -140,6 +143,10 @@ class DuplicateDetector:
             len(file_list) for file_list in size_groups.values() if len(file_list) >= 2
         )
         hashed_files = 0
+        # Count of files processed (including hashed, skipped cloud, and errors).
+        # Progress updates should be based on files processed so the reporter
+        # shows steady progress even when some files are skipped without hashing.
+        files_processed = 0
         skipped_cloud_files = 0
         skipped_error_files = 0
         hash_start = time.time()
@@ -246,7 +253,25 @@ class DuplicateDetector:
                         if verbose:
                             self._logger.debug(f"SKIPPED (cloud-only): {file.path}")
                         hashed_files += 1
+                        files_processed += 1
                         skipped_cloud_files += 1
+                        # Periodic progress update
+                        try:
+                            if reporter_to_use and hasattr(reporter_to_use, "update_progress"):
+                                try:
+                                    reporter_to_use.update_progress(files_processed, None)
+                                except Exception:
+                                    pass
+                            else:
+                                if files_processed % 5 == 0:
+                                    try:
+                                        self._logger.info(
+                                            f"Progress: {files_processed}/{total_files_to_hash} files processed"
+                                        )
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
                         continue
 
                     if verbose:
@@ -278,6 +303,24 @@ class DuplicateDetector:
                         file_hash = str(file.path)  # fallback for now
                     hash_groups[file_hash].append(file)
                     hashed_files += 1
+                    files_processed += 1
+                    # Periodic progress update after hashing a file
+                    try:
+                        if reporter_to_use and hasattr(reporter_to_use, "update_progress"):
+                            try:
+                                reporter_to_use.update_progress(files_processed, None)
+                            except Exception:
+                                pass
+                        else:
+                            if files_processed % 5 == 0:
+                                try:
+                                    self._logger.info(
+                                        f"Progress: {files_processed}/{total_files_to_hash} files processed"
+                                    )
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
                 except (OSError, PermissionError) as e:
                     if verbose:
                         try:
@@ -287,7 +330,25 @@ class DuplicateDetector:
                         self._logger.debug(f"SKIPPED (error): {name} - {e}")
                     # Skip files that can't be read
                     hashed_files += 1
+                    files_processed += 1
                     skipped_error_files += 1
+                    # Periodic progress update for skipped/error files
+                    try:
+                        if reporter_to_use and hasattr(reporter_to_use, "update_progress"):
+                            try:
+                                reporter_to_use.update_progress(files_processed, None)
+                            except Exception:
+                                pass
+                        else:
+                            if files_processed % 5 == 0:
+                                try:
+                                    self._logger.info(
+                                        f"Progress: {files_processed}/{total_files_to_hash} files processed"
+                                    )
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
                     continue
 
             # Create duplicate groups for hash groups with multiple files
@@ -297,20 +358,23 @@ class DuplicateDetector:
                     duplicate_group = DuplicateGroup(file_hash, files_with_same_hash)
                     duplicate_groups.append(duplicate_group)
                     if verbose:
-                        # Announce duplicate groups at INFO (concise)
-                        self._logger.info(
+                        # Announce duplicate groups at DEBUG to avoid INFO-level
+                        # chatter; the CLI will print the user-facing group
+                        # summaries in verbose mode.
+                        self._logger.debug(
                             f"  DUPLICATE GROUP: {len(files_with_same_hash)} files with hash {file_hash[:8]}..."
                         )
 
         if verbose:
-            # Summary via logger
-            self._logger.info("Hash computation summary:")
-            self._logger.info(
+            # Demote hash computation summary to DEBUG to keep INFO-level
+            # output concise; tests or advanced users can enable DEBUG.
+            self._logger.debug("Hash computation summary:")
+            self._logger.debug(
                 f"  Files hashed: {hashed_files - skipped_cloud_files - skipped_error_files}"
             )
-            self._logger.info(f"  Cloud-only files skipped: {skipped_cloud_files}")
-            self._logger.info(f"  Error files skipped: {skipped_error_files}")
-            self._logger.info(f"  Duplicate groups found: {len(duplicate_groups)}")
+            self._logger.debug(f"  Cloud-only files skipped: {skipped_cloud_files}")
+            self._logger.debug(f"  Error files skipped: {skipped_error_files}")
+            self._logger.debug(f"  Duplicate groups found: {len(duplicate_groups)}")
             # Detailed metrics to debug log
             self._logger.debug(
                 {
@@ -327,8 +391,9 @@ class DuplicateDetector:
             if series_group_count is None:
                 # fallback to local capture
                 series_group_count = len(series_groups)
-            # Log series summary at info level
-            self._logger.info(
+            # Record series summary at DEBUG to avoid adding to INFO-level
+            # CLI chatter; the CLI prints the user-visible summary itself.
+            self._logger.debug(
                 f"Series groups skipped: {series_group_count} groups, {skipped_series} files"
             )
 
@@ -352,6 +417,27 @@ class DuplicateDetector:
                     metadata.total_files_skipped += skipped_cloud_files
         except Exception:
             # Do not let metadata failures break duplicate detection
+            pass
+
+        # If a database/cache provider was supplied, emit a concise INFO
+        # message to inform users that scan results (hashes) were persisted.
+        try:
+            if db is not None:
+                try:
+                    self._logger.info("Database updated with scan results.")
+                except Exception:
+                    # Ignore logging failures here; do not raise
+                    pass
+            else:
+                try:
+                    # Warn the user that no database/cache provider was
+                    # supplied so hashes were not persisted across runs.
+                    self._logger.warning(
+                        "No database provided; scan results were not persisted."
+                    )
+                except Exception:
+                    pass
+        except Exception:
             pass
 
         return duplicate_groups
@@ -388,7 +474,9 @@ class DuplicateDetector:
             return []
 
         if verbose:
-            self._logger.info(
+            # Demote this high-volume analysis line to DEBUG so verbose CLI
+            # remains focused on user-facing summaries.
+            self._logger.debug(
                 f"Analyzing {len(files)} files for potential matches (name similarity threshold: {threshold})..."
             )
 
@@ -482,19 +570,20 @@ class DuplicateDetector:
 
                 potential_groups.append(potential_group)
 
-                if verbose:
-                    self._logger.info(
-                        f"  POTENTIAL GROUP: {len(similar_files)} files similar to '{file1.path.name}'"
-                    )
+                # Intentionally do not emit per-group filename listings to the
+                # logger; these can be noisy and are surfaced via the CLI only
+                # in --debug mode by printing the `potential_match_groups`.
 
                 # Mark all files in this group as processed
                 for file in similar_files:
                     processed_files.add(file)
 
         if verbose:
-            self._logger.info("Potential match analysis summary:")
-            self._logger.info(f"  Potential groups found: {len(potential_groups)}")
-            self._logger.info(f"  Excluded obvious non-duplicates: {excluded_pairs}")
+            # Demote potential-match summary to DEBUG; CLI will surface
+            # human-facing reports when appropriate.
+            self._logger.debug("Potential match analysis summary:")
+            self._logger.debug(f"  Potential groups found: {len(potential_groups)}")
+            self._logger.debug(f"  Excluded obvious non-duplicates: {excluded_pairs}")
 
         return potential_groups
 

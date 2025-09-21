@@ -949,31 +949,12 @@ def _display_text_results(
 
     # Summary header
     if verbose:
+        # In verbose mode only print the scan header, totals, and duplicate group
+        # summary. Potential matches and per-file listings remain debug-only to
+        # avoid overwhelming output.
         click.echo(f"\n{header('=== Scan Results ===')}")
         click.echo(f"Scanned: {info(', '.join(str(p) for p in metadata.scan_paths))}")
         click.echo(f"Files found: {info(str(metadata.total_files_found))}")
-
-        # When verbose, show group summaries; when debug is enabled show a
-        # short sample of discovered file paths (relative to the scanned
-        # directory) so recursive scans clearly show files found in
-        # subdirectories for integration tests and users.
-        try:
-            if debug:
-                base = metadata.scan_paths[0] if metadata.scan_paths else scan_directory
-                base_path = Path(base)
-                shown = 0
-                for p in (base_path.rglob("*") if metadata.recursive else base_path.iterdir()):
-                    try:
-                        if p.is_file():
-                            click.echo(f"  - {get_relative_path(p)}")
-                            shown += 1
-                            if shown >= 50:
-                                break
-                    except Exception:
-                        continue
-        except Exception:
-            # Best-effort only; do not fail on printing
-            pass
 
         if metadata.end_time and metadata.start_time:
             duration = (metadata.end_time - metadata.start_time).total_seconds()
@@ -981,15 +962,13 @@ def _display_text_results(
 
         click.echo(f"Total size: {info(format_size(metadata.total_size_scanned))}")
 
-        # Duplicate groups (verbose mode)
+        # Duplicate groups (verbose mode) — always show group summaries here.
         if scan_result.duplicate_groups:
             click.echo(
                 f"\n{header(f'=== Duplicate Groups ({len(scan_result.duplicate_groups)}) ===')}"
             )
 
-            total_wasted = sum(
-                group.wasted_space for group in scan_result.duplicate_groups
-            )
+            total_wasted = sum(group.wasted_space for group in scan_result.duplicate_groups)
             click.echo(f"Total wasted space: {warning(format_size(total_wasted))}")
 
             for i, group in enumerate(scan_result.duplicate_groups, 1):
@@ -997,33 +976,30 @@ def _display_text_results(
                 click.echo(f"  Size: {format_size(group.file_size)} each")
                 click.echo(f"  Wasted: {warning(format_size(group.wasted_space))}")
 
-                # Only list individual files when debug mode is enabled;
-                # verbose mode shows group summaries for easier debugging at
-                # the group level without overwhelming test output.
+                # Only list individual files when debug mode is enabled.
                 if debug:
                     for file in group.files:
                         click.echo(f"    {get_relative_path(file.path)}")
         else:
             click.echo(f"\n{success('No duplicate groups found.')}")
 
-        # Potential matches (verbose mode)
-        if scan_result.potential_match_groups:
-            click.echo(
-                f"\n{header(f'=== Potential Matches ({len(scan_result.potential_match_groups)}) ===')}"
-            )
-
-            for i, group in enumerate(scan_result.potential_match_groups, 1):
+        # Potential matches are intentionally not shown in verbose mode; they
+        # remain visible only when --debug is used.
+        if debug:
+            if scan_result.potential_match_groups:
                 click.echo(
-                    f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})"
+                    f"\n{header(f'=== Potential Matches ({len(scan_result.potential_match_groups)}) ===')}"
                 )
 
-                if debug:
+                for i, group in enumerate(scan_result.potential_match_groups, 1):
+                    click.echo(
+                        f"\n{info(f'Group {i}')}: {len(group.files)} files (similarity: {group.average_similarity:.2f})"
+                    )
+
                     for file in group.files:
-                        click.echo(
-                            f"    {get_relative_path(file.path)} ({format_size(file.size)})"
-                        )
-        else:
-            click.echo(f"\n{success('No potential matches found.')}")
+                        click.echo(f"    {get_relative_path(file.path)} ({format_size(file.size)})")
+            else:
+                click.echo(f"\n{success('No potential matches found.')}")
     else:
         # Quiet mode - minimal output
         click.echo(f"Scanned: {', '.join(str(p) for p in metadata.scan_paths)}")
