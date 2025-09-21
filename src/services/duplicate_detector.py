@@ -60,6 +60,7 @@ class DuplicateDetector:
         progress_reporter=None,
         verbose: bool = False,
         metadata=None,
+        db=None,
     ) -> List[DuplicateGroup]:
         """
         Identifies duplicate files using size and hash comparison.
@@ -248,13 +249,37 @@ class DuplicateDetector:
                     # Compute hash if not already done
                     if hasattr(file, "compute_hash"):
                         file_hash = file.compute_hash()
+                        # Persist computed hash to the optional database cache
+                        if db is not None:
+                                # Use path.stat().st_mtime for mtime numeric value
+                                try:
+                                    mtime = file.path.stat().st_mtime
+                                except Exception:
+                                    mtime = None
+                                try:
+                                    if mtime is not None:
+                                        db.set_cached_hash(file.path, file.size, mtime, file_hash)
+                                except Exception as e:
+                                    # DB persistence is best-effort; do not fail hashing
+                                    try:
+                                        # Log at debug level; do not raise on DB failures
+                                        self._logger.debug(
+                                            f"Failed to persist hash for {file.path}: {e}"
+                                        )
+                                    except Exception:
+                                        pass
                     else:
                         file_hash = str(file.path)  # fallback for now
                     hash_groups[file_hash].append(file)
                     hashed_files += 1
                 except (OSError, PermissionError) as e:
                     if verbose:
-                        print(f"  SKIPPED (error): {user_file.path.name} - {e}")
+                        # 'file' is the loop variable in scope here
+                        try:
+                            name = file.path.name
+                        except Exception:
+                            name = '<unknown>'
+                        print(f"  SKIPPED (error): {name} - {e}")
                     # Skip files that can't be read
                     hashed_files += 1
                     skipped_error_files += 1

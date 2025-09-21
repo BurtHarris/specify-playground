@@ -42,14 +42,17 @@ class FileDatabase:
         """Return cached hash if present and matching size+mtime, else None."""
         if self._conn is None:
             self.connect()
+        # Look up directory_id for the parent directory to normalize paths
         cur = self._conn.cursor()
+        parent = str(Path(path).parent)
+        cur.execute("SELECT id FROM directories WHERE path = ? LIMIT 1", (parent,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        directory_id = row[0]
         cur.execute(
-            """
-            SELECT hash FROM file_hashes
-            WHERE path = ? AND size = ? AND mtime = ?
-            LIMIT 1
-            """,
-            (str(path), int(size), float(mtime)),
+            "SELECT hash FROM file_hashes WHERE directory_id = ? AND path = ? AND size = ? AND mtime = ? LIMIT 1",
+            (directory_id, str(path), int(size), float(mtime)),
         )
         row = cur.fetchone()
         return row["hash"] if row else None
@@ -60,13 +63,18 @@ class FileDatabase:
         if self._conn is None:
             self.connect()
         cur = self._conn.cursor()
+        parent = str(Path(path).parent)
+        # Ensure directory record exists
+        cur.execute("INSERT OR IGNORE INTO directories (path, canonical_path) VALUES (?, ?)", (parent, None))
+        cur.execute("SELECT id FROM directories WHERE path = ?", (parent,))
+        directory_id = cur.fetchone()[0]
         cur.execute(
             """
-            INSERT INTO file_hashes (path, size, mtime, hash)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET size=excluded.size, mtime=excluded.mtime, hash=excluded.hash
+            INSERT INTO file_hashes (directory_id, path, size, mtime, hash)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(directory_id, path) DO UPDATE SET size=excluded.size, mtime=excluded.mtime, hash=excluded.hash
             """,
-            (str(path), int(size), float(mtime), hash_value),
+            (directory_id, str(path), int(size), float(mtime), hash_value),
         )
         self._conn.commit()
 
@@ -110,9 +118,24 @@ def get_database(db_path: Optional[Path] = None):
     """Factory that attempts to open an on-disk DB and falls back to in-memory."""
     if db_path is None:
         return InMemoryFileDatabase()
+    # If the DB file already exists, attempt to open it and assume the
+    # schema is present; do not force schema initialization which can fail
+    # when upgrading or when indexes reference older column names. If the
+    # file does not exist, create it and initialize the schema.
     try:
+        if db_path.exists():
+            db = FileDatabase(db_path=db_path)
+            db.connect()
+            return db
+        # New DB file: create and initialize schema
         db = FileDatabase(db_path=db_path)
         db.connect()
+        try:
+            db.init_schema()
+        except Exception:
+            # If schema init fails on a newly created file, prefer the
+            # in-memory fallback to avoid breaking callers.
+            return InMemoryFileDatabase()
         return db
     except DatabaseCorruptError:
         return InMemoryFileDatabase()

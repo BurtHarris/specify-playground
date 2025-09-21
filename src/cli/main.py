@@ -96,6 +96,47 @@ def check_python_version():
 # Perform version check first
 check_python_version()
 
+
+def enforce_utf8_stdio() -> None:
+    """Ensure stdout/stderr use UTF-8 and set PYTHONIOENCODING for child processes.
+
+    This is a best-effort, defensive change to avoid UnicodeEncodeError when
+    printing emoji or other non-encodable characters on Windows consoles.
+    If reconfigure is available on the stream, prefer it; otherwise set the
+    environment variable so child processes inherit UTF-8 behaviour.
+    """
+    try:
+        import os as _os
+
+        # Ensure child processes inherit UTF-8 by default
+        _os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+        for _name in ("stdout", "stderr"):
+            _stream = getattr(sys, _name, None)
+            if _stream is None:
+                continue
+            try:
+                # Python 3.7+ exposes reconfigure on TextIOBase wrappers
+                if hasattr(_stream, "reconfigure"):
+                    _stream.reconfigure(encoding="utf-8", errors="backslashreplace", newline="\n")
+            except Exception:
+                # Best-effort only; do not raise during CLI startup
+                try:
+                    # As a fallback, set environment and continue; if the
+                    # stream cannot be reconfigured, future writes will use
+                    # backslashreplace when encoded via bytes.
+                    _os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+                except Exception:
+                    pass
+    except Exception:
+        # Never let encoding helpers break CLI startup
+        pass
+
+
+# Enforce UTF-8 on stdio as early as possible so diagnostic printing cannot
+# abort long-running scans due to platform console encodings (e.g., cp1252).
+enforce_utf8_stdio()
+
 # Now safe to import our modules
 from ..services.file_scanner import FileScanner, DirectoryNotFoundError
 from ..services.duplicate_detector import DuplicateDetector
@@ -565,7 +606,7 @@ def _perform_scan(
             click.echo("Detecting duplicates...")
 
         duplicate_groups = detector.find_duplicates(
-            files, reporter, verbose, metadata=metadata
+            files, reporter, verbose, metadata=metadata, db=scanner.db
         )
 
         # Update progress
