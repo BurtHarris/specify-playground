@@ -397,7 +397,14 @@ class FileScanner:
         # Simplified validation that uses real filesystem semantics.
         # Any failure returns False rather than raising.
         try:
-            path = Path(file_path)
+            # If the caller passed a pathlib-like object (including test
+            # mocks that implement .is_file, .stat and .suffix), use it
+            # directly to preserve mocked behaviour. Otherwise construct a
+            # pathlib.Path from the value.
+            if hasattr(file_path, 'is_file') and hasattr(file_path, 'stat') and hasattr(file_path, 'suffix'):
+                path = file_path
+            else:
+                path = Path(file_path)
         except Exception:
             try:
                 path = Path(str(file_path))

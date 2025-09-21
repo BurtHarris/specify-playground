@@ -14,27 +14,63 @@ from typing import Optional
 import click
 
 
-# Custom Click Group that treats an unknown first argument as an implicit
-# scan directory by returning the 'scan' command and pushing the argument
-# back into ctx.args so the 'scan' handler receives it.
-class DefaultGroup(click.Group):
-    def parse_args(self, ctx, args):
-        """If the user passes a positional first arg that isn't a subcommand,
-        move it into ctx.args and clear args so the group callback treats it
-        as an implicit directory argument.
-        """
+# Default click.Group is sufficient; implicit directory invocation is
+# handled inside the main() function by inspecting ctx.args when no
+# subcommand is invoked. Custom group logic caused Click dispatch
+# inconsistencies during tests and is unnecessary.
+
+
+class CommandFirstGroup(click.Group):
+    """A Click Group that prefers known subcommand names over consuming
+    a top-level positional argument. If the first argument matches a
+    registered subcommand, resolve it as a command so subcommands like
+    'config' are not accidentally parsed as the DIRECTORY argument.
+    """
+    def resolve_command(self, ctx, args):
         if args:
-            first = args[0]
-            # Heuristic: treat anything that looks like a path (contains a
-            # path separator or a drive letter on Windows) as an implicit
-            # directory rather than a subcommand.
-            looks_like_path = (os.path.sep in first) or (os.path.altsep and os.path.altsep in first) or (':' in first)
-            if looks_like_path and first not in self.commands:
-                # Move all remaining args into ctx.args and clear args to
-                # prevent Click from attempting subcommand parsing.
-                ctx.args.extend(args[:])
-                args[:] = []
-        return super().parse_args(ctx, args)
+            potential = args[0]
+            # Ensure a string form for membership checks since Click may
+            # coerce positional args to Path objects when path_type=Path.
+            try:
+                potential_str = potential if isinstance(potential, str) else str(potential)
+            except Exception:
+                potential_str = str(potential)
+
+            # If the first token is a registered subcommand, dispatch to it.
+            if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+                try:
+                    print(f"[CommandFirstGroup] args={args}, potential={potential!r}, commands={list(self.commands.keys())}")
+                except Exception:
+                    pass
+            if potential_str in self.commands:
+                if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+                    print(f"[CommandFirstGroup] resolving to subcommand {potential_str}")
+                return potential_str, self.commands[potential_str], args[1:]
+
+            # If the first token looks like an existing directory and a
+            # 'scan' subcommand exists, treat this as implicit 'scan' so
+            # programmatic invocations (CliRunner) work without the shim.
+            try:
+                if 'scan' in self.commands and not potential_str.startswith('-'):
+                    from pathlib import Path as _Path
+                    p = _Path(potential)
+                    if p.exists() and p.is_dir():
+                        return 'scan', self.commands['scan'], args
+            except Exception:
+                # Fall through to default resolution on any error
+                pass
+            # If the first token is an option (starts with '-') and a 'scan'
+            # subcommand exists, treat the invocation as targeting 'scan'
+            # so that options like --progress and --export are parsed by the
+            # scan subcommand instead of being treated as unknown commands.
+            try:
+                if potential_str.startswith('-') and 'scan' in self.commands:
+                    if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+                        print(f"[CommandFirstGroup] treating leading option {potential_str} as scan subcommand")
+                    return 'scan', self.commands['scan'], args
+            except Exception:
+                pass
+        return super().resolve_command(ctx, args)
 
 # Python version check BEFORE any other imports
 def check_python_version():
@@ -72,18 +108,10 @@ def format_size(bytes_size: int) -> str:
     return f"{bytes_size:.1f} PB"
 
 
-@click.group(cls=DefaultGroup, invoke_without_command=True, context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
-@click.argument('implicit_path', required=False, type=click.Path(file_okay=False, dir_okay=True, readable=True, path_type=Path))
+@click.group(cls=CommandFirstGroup, invoke_without_command=True, context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 @click.pass_context
-@click.option('--recursive/--no-recursive', default=None, help='Scan subdirectories recursively (default: from config)')
-@click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
-@click.option('--threshold', type=float, default=None, help='Fuzzy matching threshold (0.0-1.0) (default: from config)')
-@click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
-@click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
-@click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
 @click.version_option(version=__version__, prog_name='Video Duplicate Scanner')
-def main(ctx: click.Context, implicit_path: Optional[Path], recursive: Optional[bool], export: Optional[Path], 
-         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
+def main(ctx: click.Context):
     """
     Video Duplicate Scanner CLI
 
@@ -94,61 +122,46 @@ def main(ctx: click.Context, implicit_path: Optional[Path], recursive: Optional[
 
     Use 'file-dedup scan DIRECTORY' to scan a directory.
     Use 'file-dedup config' commands to manage configuration.
+    
+        Scan options (also available when invoking `python -m src --help`):
+            --recursive / --no-recursive    Scan subdirectories recursively
+            --export PATH                    Export results to YAML file at PATH
+            --threshold FLOAT                Fuzzy matching threshold (0.0-1.0)
+            --verbose / --quiet              Verbose output with detailed progress
+            --progress / --no-progress      Show progress bar
+            --color / --no-color            Colorized output
     """
-    # If invoked without a subcommand, show help. Use the 'scan' subcommand
-    # explicitly for scanning. Module-level invocation rewrites (in
-    # src.__main__) insert 'scan' when appropriate so subprocess-style calls
-    # like `python -m src <DIR>` will still map to the scan flow.
+    # If invoked without a subcommand, show help. When help was explicitly
+    # requested at the top level (e.g. `python -m src --help`), also include
+    # the `scan` subcommand help so options like --recursive and --export are
+    # visible to users and integration tests that expect them in top-level
+    # help output.
     if ctx.invoked_subcommand is None:
-        # Support implicit invocation where the user passes a directory as
-        # the first positional argument to the top-level group (CliRunner and
-        # several tests rely on this behaviour). If a positional arg is
-        # present, treat it as an implicit scan invocation and run the scan
-        # using the parsed options.
-        # Prefer explicit implicit_path argument when provided (Click will
-        # populate this when the user supplies a top-level positional).
-        # Determine implicit directory from explicit positional or leftover ctx.args
-        implicit_dir = None
-        if implicit_path is not None:
-            implicit_dir = implicit_path
-        elif ctx.args:
-            implicit_dir = Path(ctx.args[0])
-
-        if implicit_dir is not None:
-            try:
-                # Load config defaults like the explicit 'scan' command would
-                config_manager = ConfigManager()
-                try:
-                    config_settings = config_manager.load_config()
-                except Exception:
-                    config_settings = ConfigManager.DEFAULT_CONFIG.copy()
-
-                # Resolve CLI options with config defaults where needed
-                if recursive is None:
-                    resolved_recursive = config_settings.get('recursive_scan', True)
-                else:
-                    resolved_recursive = recursive
-                if threshold is None:
-                    resolved_threshold = config_settings.get('fuzzy_threshold', 0.8)
-                else:
-                    resolved_threshold = threshold
-                if verbose is None:
-                    resolved_verbose = config_settings.get('verbose_mode', False)
-                else:
-                    resolved_verbose = verbose
-                if progress is None and config_settings.get('show_progress') is not None:
-                    resolved_progress = config_settings.get('show_progress')
-                else:
-                    resolved_progress = progress
-
-                _run_scan(implicit_dir, resolved_recursive, export, resolved_threshold, resolved_verbose, resolved_progress, color, config_manager)
-                return
-            except Exception:
-                # Fall back to showing help if implicit scan invocation fails
-                click.echo(ctx.get_help(), color=ctx.color)
-                ctx.exit()
-
         click.echo(ctx.get_help(), color=ctx.color)
+        # If user asked for help (top-level --help/-h) then append scan help
+        # so scan-specific options are visible in the module-level help.
+        argv = list(ctx.args) if ctx.args is not None else []
+        # Also consider raw sys.argv presence of -h/--help
+        import sys as _sys
+        raw_help = any(a in (_sys.argv[1:] if len(_sys.argv) > 1 else []) for a in ('--help', '-h'))
+        if ('--help' in argv or '-h' in argv) or raw_help:
+            try:
+                if 'scan' in getattr(main, 'commands', {}):
+                    scan_cmd = main.commands['scan']
+                    try:
+                        # Use the command's get_help API to render help text with
+                        # the current top-level context as parent so option
+                        # formatting and help text include parameter descriptions.
+                        scan_ctx = click.Context(scan_cmd, info_name='scan', parent=ctx)
+                        help_text = scan_cmd.get_help(scan_ctx)
+                        click.echo('\n' + help_text, color=ctx.color)
+                    except Exception:
+                        # Fallback: attempt to build a simple header
+                        click.echo('\nScan command help:\n  run `python -m src scan --help` for details', color=ctx.color)
+            except Exception:
+                # If anything goes wrong retrieving subcommand help, ignore
+                # and exit after printing group help.
+                pass
         ctx.exit()
 
 

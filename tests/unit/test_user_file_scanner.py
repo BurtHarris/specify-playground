@@ -106,133 +106,55 @@ class TestFileScanner:
         
         assert result == []
     
-    @patch('os.access')
-    @patch('os.access')
-    @patch('pathlib.Path.exists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.iterdir')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_with_user_files(self, mock_is_file, mock_stat, mock_iterdir, mock_is_dir, mock_exists, mock_access, scanner):
-        """Test scanning directory with UserFiles."""
-        mock_exists.return_value = True
-        mock_is_dir.return_value = True
-        mock_access.return_value = True
+    def test_scan_directory_with_user_files(self, tmp_path, scanner):
+        """Test scanning directory with real temporary UserFiles."""
+        # Create real files on disk to exercise FileScanner logic without mocks
+        f1 = tmp_path / 'user_file1.mp4'
+        f1.write_bytes(b'\0' * 1024)
 
-        # Create mock files
-        user_file1 = Mock(spec=Path)
-        user_file1.suffix = '.mp4'
-        user_file1.is_file.return_value = True
-        user_file1.stat.return_value.st_size = 1024
-        user_file1.__str__ = lambda: '/test/user_file1.mp4'
-        user_file1.__fspath__ = lambda: '/test/user_file1.mp4'
+        f2 = tmp_path / 'user_file2.mkv'
+        f2.write_bytes(b'\0' * 2048)
 
-        user_file2 = Mock(spec=Path)
-        user_file2.suffix = '.mkv'
-        user_file2.is_file.return_value = True
-        user_file2.stat.return_value.st_size = 2048
-        user_file2.__str__ = lambda: '/test/user_file2.mkv'
-        user_file2.__fspath__ = lambda: '/test/user_file2.mkv'
+        non_video = tmp_path / 'file.txt'
+        non_video.write_text('hello')
 
-        non_user_file = Mock(spec=Path)
-        non_user_file.suffix = '.txt'
-        non_user_file.is_file.return_value = True
-        non_user_file.__str__ = lambda: '/test/file.txt'
-        non_user_file.__fspath__ = lambda: '/test/file.txt'
-
-        mock_iterdir.return_value = [user_file1, user_file2, non_user_file]
-
-        directory = Path("/test")
-        result = list(scanner.scan(directory))
+        result = list(scanner.scan(tmp_path))
 
         assert len(result) == 2
         assert all(isinstance(f, UserFile) for f in result)
-        assert result[0].size == 1024
-        assert result[1].size == 2048
+        sizes = sorted([f.size for f in result])
+        assert sizes == [1024, 2048]
     
-    @patch('os.access')
-    @patch('pathlib.Path.exists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.rglob')
-    @patch('pathlib.Path.glob')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_recursive(self, mock_is_file, mock_stat, mock_glob, 
-                                    mock_rglob, mock_is_dir, mock_exists, mock_access, scanner):
-        """Test recursive directory scanning."""
-        mock_exists.return_value = True
-        mock_is_dir.return_value = True
-        mock_access.return_value = True
-        
-        # Create mock files in subdirectories
-        video1 = Mock(spec=Path)
-        video1.suffix = '.mp4'
-        video1.is_file.return_value = True
-        video1.stat.return_value.st_size = 1024
-        video1.__str__ = lambda: '/test/subdir/video1.mp4'
-        video1.__fspath__ = lambda: '/test/subdir/video1.mp4'
-        
-        video2 = Mock(spec=Path)
-        video2.suffix = '.mov'
-        video2.is_file.return_value = True
-        video2.stat.return_value.st_size = 3072
-        video2.__str__ = lambda: '/test/deeper/video2.mov'
-        video2.__fspath__ = lambda: '/test/deeper/video2.mov'
-        
-        # Mock rglob to return files from recursive search
-        mock_rglob.side_effect = lambda pattern: {
-            '*.mp4': [video1],
-            '*.mkv': [],
-            '*.mov': [video2]
-        }.get(pattern, [])
-        
-        directory = Path("/test")
-        result = list(scanner.scan_recursive(directory))
-        
+    def test_scan_directory_recursive(self, tmp_path, scanner):
+        """Test recursive directory scanning with real files."""
+        # Create nested directories and files
+        subdir = tmp_path / 'subdir'
+        subdir.mkdir()
+        deeper = tmp_path / 'deeper'
+        deeper.mkdir()
+
+        v1 = subdir / 'video1.mp4'
+        v1.write_bytes(b'\0' * 1024)
+
+        v2 = deeper / 'video2.mov'
+        v2.write_bytes(b'\0' * 3072)
+
+        result = list(scanner.scan_recursive(tmp_path))
         assert len(result) == 2
-        # Check sizes are present but don't assume order
-        sizes = [f.size for f in result]
-        assert 1024 in sizes
-        assert 3072 in sizes
-        
-        # Verify rglob was called for each extension
-        assert mock_rglob.call_count == 3
+        sizes = sorted([f.size for f in result])
+        assert sizes == [1024, 3072]
     
-    @patch('os.access')
-    @patch('pathlib.Path.exists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.glob')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_non_recursive(self, mock_is_file, mock_stat, mock_glob, 
-                                        mock_is_dir, mock_exists, mock_access, scanner):
-        """Test non-recursive directory scanning."""
-        mock_exists.return_value = True
-        mock_is_dir.return_value = True
-        mock_access.return_value = True
-        
-        video1 = Mock(spec=Path)
-        video1.suffix = '.mp4'
-        video1.is_file.return_value = True
-        video1.stat.return_value.st_size = 1024
-        video1.__str__ = lambda: '/test/video1.mp4'
-        video1.__fspath__ = lambda: '/test/video1.mp4'
-        
-        # Mock glob to return files from non-recursive search
-        mock_glob.side_effect = lambda pattern: {
-            '*.mp4': [video1],
-            '*.mkv': [],
-            '*.mov': []
-        }.get(pattern, [])
-        
-        directory = Path("/test")
-        result = list(scanner.scan(directory))
-        
+    def test_scan_directory_non_recursive(self, tmp_path, scanner):
+        """Test non-recursive directory scanning with real files."""
+        v1 = tmp_path / 'video1.mp4'
+        v1.write_bytes(b'\0' * 1024)
+
+        v2 = tmp_path / 'video2.txt'
+        v2.write_text('not video')
+
+        result = list(scanner.scan(tmp_path))
         assert len(result) == 1
         assert result[0].size == 1024
-        
-        # Verify glob was called for each extension
-        assert mock_glob.call_count == 3
     
     @patch('pathlib.Path.exists')
     @patch('pathlib.Path.is_dir')
@@ -325,54 +247,22 @@ class TestFileScanner:
         # Zero-size files should be skipped
         assert len(result) == 0
     
-    @patch('os.access')
-    @patch('pathlib.Path.exists')
-    @patch('pathlib.Path.is_dir')
-    @patch('pathlib.Path.iterdir')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.is_file')
-    def test_scan_directory_mixed_file_types(self, mock_is_file, mock_stat, mock_iterdir, 
-                                           mock_is_dir, mock_exists, mock_access, scanner):
-        """Test scanning directory with mixed file types."""
-        mock_exists.return_value = True
-        mock_is_dir.return_value = True
-        mock_access.return_value = True
-        
-        # Create various file types
-        files = []
-        
-        # Files
-        for i, ext in enumerate(['.mp4', '.mkv', '.mov', '.MP4'], 1):
-            video = MagicMock(spec=Path)
-            video.suffix = ext
-            video.is_file.return_value = True
-            video.stat.return_value.st_size = 1024 * i
-            video.__str__.return_value = f'/test/video{i}{ext}'
-            video.__fspath__.return_value = f'/test/video{i}{ext}'
-            files.append(video)
-        
-        # Non-video files
+    def test_scan_directory_mixed_file_types(self, tmp_path, scanner):
+        """Test scanning directory with mixed file types using real files."""
+        sizes_expected = []
+        exts = ['.mp4', '.mkv', '.mov', '.MP4']
+        for i, ext in enumerate(exts, 1):
+            p = tmp_path / f'video{i}{ext}'
+            p.write_bytes(b'\0' * (1024 * i))
+            sizes_expected.append(1024 * i)
+
+        # Add some non-video files and a subdir
         for ext in ['.txt', '.jpg', '.avi', '.wmv']:
-            non_video = MagicMock(spec=Path)
-            non_video.suffix = ext
-            non_video.is_file.return_value = True
-            non_video.__str__.return_value = f'/test/file{ext}'
-            non_video.__fspath__.return_value = f'/test/file{ext}'
-            files.append(non_video)
-        
-        # Directory
-        subdir = MagicMock(spec=Path)
-        subdir.is_file.return_value = False
-        subdir.__str__.return_value = '/test/subdir'
-        subdir.__fspath__.return_value = '/test/subdir'
-        files.append(subdir)
-        
-        mock_iterdir.return_value = files
-        
-        directory = Path("/test")
-        result = list(scanner.scan(directory))
-        
-        # Should only return the 4 video files
+            (tmp_path / f'file{ext}').write_text('x')
+
+        (tmp_path / 'subdir').mkdir()
+
+        result = list(scanner.scan(tmp_path))
         assert len(result) == 4
-        sizes = [f.size for f in result]
-        assert sorted(sizes) == [1024, 2048, 3072, 4096]
+        sizes = sorted([f.size for f in result])
+        assert sizes == sorted(sizes_expected)

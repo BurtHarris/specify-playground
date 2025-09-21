@@ -10,6 +10,11 @@ PyYAML>=6.0
 # Fuzzy string matching
 fuzzywuzzy>=0.18.0
 python-Levenshtein>=0.12.0  # For better performance
+# RapidFuzz is a faster, well-maintained alternative to fuzzywuzzy
+rapidfuzz>=2.15.0
+
+# Progress bars for CLI long-running operations and for tests
+tqdm>=4.65.0
 
 # Windows OneDrive integration (MVP)
 # Uses Python standard library: ctypes for Windows API access
@@ -19,6 +24,8 @@ python-Levenshtein>=0.12.0  # For better performance
 pytest>=7.0.0
 pytest-mock>=3.10.0
 pytest-cov>=4.0.0
+# Ensure typing backports for older Python compat in some environments
+typing_extensions>=4.7.1
 
 # Code quality
 black>=23.0.0

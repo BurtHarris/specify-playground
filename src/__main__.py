@@ -1,57 +1,105 @@
 """
-Entry point for the video duplicate scanner CLI.
+Minimal CLI entrypoint for Video Duplicate Scanner.
 
-This module provides the main entry point for the CLI application,
-enabling execution via 'python -m src' or 'python src'.
+This entrypoint supports implicit invocation patterns used by some
+integration tests and shell users: when the module is invoked as
+`python -m src [OPTIONS] <DIRECTORY>` and the DIRECTORY token is an
+existing directory path, insert the explicit 'scan' subcommand so Click
+dispatches correctly. This insertion is conservative and only happens
+when an actual existing directory is found among the positional args.
 """
 
+import sys
+import os
+from pathlib import Path
+
+from src.cli.main import main
+
+
+def _maybe_insert_scan_subcommand():
+    # Only examine user-provided args (skip program name)
+    if len(sys.argv) <= 1:
+        return
+
+    # Don't modify if a recognized subcommand is already present
+    # (e.g., 'scan' or 'config').
+    recognized = set(getattr(main, 'commands', {}).keys())
+
+    # Search for the first token that looks like an existing directory and
+    # is not an option (doesn't start with '-') and not a recognized command.
+    for i, token in enumerate(sys.argv[1:], start=1):
+        if token.startswith('-'):
+            continue
+        if token in recognized:
+            # Found an explicit subcommand; nothing to do.
+            return
+        try:
+            p = Path(token)
+            if p.exists() and p.is_dir():
+                # Move scan-related options (that may appear before the
+                # directory) to immediately after the inserted 'scan'
+                # token so the subcommand will parse them. This handles
+                # invocations like: python -m src --recursive --export out.yaml <dir>
+                scan_options_with_value = {'--export', '--threshold'}
+
+                # Collect indices of tokens between program name and dir
+                pre_indices = list(range(1, i))
+                move_indices = []
+                j = 1
+                while j < i:
+                    tok = sys.argv[j]
+                    if tok in scan_options_with_value:
+                        # move option and its value (if present)
+                        move_indices.append(j)
+                        if j + 1 < i:
+                            move_indices.append(j + 1)
+                        j += 2
+                    elif tok.startswith('-'):
+                        move_indices.append(j)
+                        j += 1
+                    else:
+                        j += 1
+
+                # Build moved tokens in original order
+                moved = [sys.argv[idx] for idx in sorted(move_indices)]
+
+                # Build remaining tokens (excluding moved ones)
+                remaining = [sys.argv[k] for k in range(len(sys.argv)) if k not in move_indices]
+
+                # Find new index of the directory token in remaining
+                # (it shifts left by count of removed tokens before it)
+                # Insert 'scan' before the directory and then the moved options
+                # after 'scan'.
+                # Locate dir in remaining (first non-option, non-command token)
+                r_dir_index = None
+                for ri, rt in enumerate(remaining[1:], start=1):
+                    if not rt.startswith('-') and rt not in recognized:
+                        r_dir_index = ri
+                        break
+
+                if r_dir_index is None:
+                    # Fallback: just insert scan at original i
+                    insert_at = i
+                    remaining = sys.argv[:]
+                    moved = []
+                    new_argv = remaining[:insert_at] + ['scan'] + moved + remaining[insert_at:]
+                else:
+                    new_argv = [remaining[0]] + remaining[1:r_dir_index] + ['scan'] + moved + remaining[r_dir_index:]
+
+                sys.argv[:] = new_argv
+
+                if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+                    print(f"[__main__] relocated options and inserted 'scan'; argv={sys.argv}")
+                return
+        except Exception:
+            continue
+
+
 if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    
-    # Add the parent directory to sys.path to enable relative imports
-    src_path = Path(__file__).parent.parent
-    if str(src_path) not in sys.path:
-        sys.path.insert(0, str(src_path))
-    
-    # If invoked as: python -m src <path> (no subcommand), many tests and
-    # users expect that to behave like: python -m src scan <path>. Some test
-    # runners invoke the module as a subprocess; in that case we may not be
-    # able to reliably detect existing paths across different working dirs.
-    # Use a conservative heuristic: if the last argument is a non-option
-    # token (doesn't start with '-') and the first non-option isn't a
-    # known subcommand, insert 'scan' before the last token so Click will
-    # dispatch to the scan command. This covers common invocations like:
-    #   python -m src <dir>
-    #   python -m src --export OUT <dir>
-    try:
-        if len(sys.argv) >= 2:
-            known_subcommands = {'scan', 'config', 'help', '--help', '-h'}
-
-            # If none of the known subcommands are present in the provided
-            # arguments and the last token is a non-option (likely a path),
-            # insert 'scan' immediately after the script/module name so that
-            # Click dispatches correctly. This handles invocations like:
-            #   python -m src <dir>
-            #   python -m src --export OUT <dir>
-            argv_tail = sys.argv[1:]
-            # If any known subcommand already present, do nothing
-            if not any(token in known_subcommands for token in argv_tail):
-                last_token = sys.argv[-1]
-                if not last_token.startswith('-'):
-                    # Insert 'scan' at position 1 (after script path)
-                    # so that options remain in order after the subcommand.
-                    sys.argv.insert(1, 'scan')
-                    # Normalize argv[0] so Click's prog_name and help output
-                    # display the module name 'src' when invoked via -m.
-                    try:
-                        sys.argv[0] = 'src'
-                    except Exception:
-                        pass
-    except Exception:
-        # Best-effort: if anything goes wrong here, fall back to normal
-        # behavior and let Click handle the arguments. Avoid crashing at import.
-        pass
-
-    from src.cli.main import main
+    # Optionally print argv before/after insertion for debugging
+    if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+        print(f"[__main__] before insertion argv={sys.argv}")
+    _maybe_insert_scan_subcommand()
+    if os.environ.get('SPECIFY_DEBUG_ARGV') == '1':
+        print(f"[__main__] after insertion argv={sys.argv}")
     main()
