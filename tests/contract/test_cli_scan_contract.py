@@ -17,10 +17,15 @@ def test_cli_scan_exports_yaml(tmp_path):
     """
 
     fixture_dir = Path("tests/fixtures/sample_files")
+    # If repository fixtures aren't present, create a minimal temporary
+    # fixture directory under the test's tmp_path so the contract runs
+    # without being skipped (helps CI and lightweight local runs).
     if not fixture_dir.exists():
-        pytest.skip(
-            "No sample fixture directory present at tests/fixtures/sample_files/"
-        )
+        fixture_dir = tmp_path / "sample_files"
+        fixture_dir.mkdir(parents=True, exist_ok=True)
+        (fixture_dir / "video1.mp4").write_bytes(b"\0" * 1024)
+        (fixture_dir / "video2.mkv").write_bytes(b"\0" * 2048)
+        (fixture_dir / "notes.txt").write_text("example")
 
     runner = CliRunner()
     out_file = tmp_path / "scan_out.yaml"
