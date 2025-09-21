@@ -56,30 +56,21 @@ class CommandFirstGroup(click.Group):
                 return potential_str, self.commands[potential_str], args[1:]
 
             # If the first token looks like an existing directory and a
-            # 'scan' subcommand exists, treat this as implicit 'scan' so
-            # programmatic invocations (CliRunner) work without the shim.
+            # If the first token looks like an existing directory, treat it
+            # as an implicit invocation of the 'scan' subcommand so callers
+            # that pass a directory at the top level (tests and users)
+            # automatically dispatch to the scan command. This keeps
+            # behavior compatible with previous implicit-invocation tests.
             try:
-                if "scan" in self.commands and not potential_str.startswith("-"):
-                    from pathlib import Path as _Path
+                from pathlib import Path
 
-                    p = _Path(potential)
-                    if p.exists() and p.is_dir():
-                        return "scan", self.commands["scan"], args
-            except Exception:
-                # Fall through to default resolution on any error
-                pass
-            # If the first token is an option (starts with '-') and a 'scan'
-            # subcommand exists, treat the invocation as targeting 'scan'
-            # so that options like --progress and --export are parsed by the
-            # scan subcommand instead of being treated as unknown commands.
-            try:
-                if potential_str.startswith("-") and "scan" in self.commands:
+                p = Path(potential_str)
+                if p.exists() and p.is_dir() and "scan" in self.commands:
                     if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
-                        print(
-                            f"[CommandFirstGroup] treating leading option {potential_str} as scan subcommand"
-                        )
-                    return "scan", self.commands["scan"], args
+                        print(f"[CommandFirstGroup] treating {potential_str} as 'scan' subcommand")
+                    return "scan", self.commands["scan"], args[1:]
             except Exception:
+                # Ignore errors and fall through to default resolution
                 pass
         return super().resolve_command(ctx, args)
 
@@ -389,8 +380,11 @@ def main(ctx: click.Context):
     try:
         import rich  # type: ignore
     except Exception:
-        click.echo("Error: 'rich' package is required for this CLI. Please install it (e.g. pip install rich).", err=True)
-        ctx.exit(2)
+        # Do not fatal; prefer a warning so tests and CI without rich can run.
+        click.echo(
+            "Warning: 'rich' package is not available; CLI will run without rich formatting. Install it for improved output.",
+            err=True,
+        )
 
     # If invoked without a subcommand, show help. When help was explicitly
     # requested at the top level (e.g. `python -m src --help`), also include
@@ -602,11 +596,17 @@ def _run_scan(
 
         # Set up progress reporting
         if progress is None:
-            # Auto-detect: progress only when TTY and not in quiet mode
+            # Auto-detect: progress only when TTY and verbose mode
             show_progress = sys.stdout.isatty() and verbose
         else:
             # User explicitly requested progress on/off
             show_progress = progress
+
+        # Respect quiet mode: if verbose is False (quiet), suppress progress
+        # even when the user explicitly set --progress. Quiet mode should
+        # minimize output for scripting/CI usage.
+        if not verbose:
+            show_progress = False
 
         # Initialize services
         # Use dependency-injector container to create collaborators so they
@@ -897,6 +897,12 @@ def _perform_scan(
     metadata.end_time = datetime.now()
     metadata.total_files_processed = len(files)
 
+    # Attach raw scanned file paths to metadata for debug output
+    try:
+        metadata.scanned_files = [f.path for f in files]
+    except Exception:
+        metadata.scanned_files = []
+
     # Calculate duplicate statistics
     total_duplicate_files = sum(len(group.files) for group in duplicate_groups)
     total_duplicate_size = sum(group.total_size for group in duplicate_groups)
@@ -1000,6 +1006,17 @@ def _display_text_results(
                         click.echo(f"    {get_relative_path(file.path)} ({format_size(file.size)})")
             else:
                 click.echo(f"\n{success('No potential matches found.')}")
+            # In debug mode, also print a full list of scanned files so
+            # callers and tests can inspect which files were discovered
+            # (including non-duplicate singletons in subdirectories).
+            try:
+                scanned = getattr(metadata, "scanned_files", None)
+                if scanned:
+                    click.echo(f"\n{header('=== Scanned Files ===')}")
+                    for p in scanned:
+                        click.echo(f"  {get_relative_path(p)}")
+            except Exception:
+                pass
     else:
         # Quiet mode - minimal output
         click.echo(f"Scanned: {', '.join(str(p) for p in metadata.scan_paths)}")

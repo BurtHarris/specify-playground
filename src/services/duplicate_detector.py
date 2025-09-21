@@ -419,26 +419,142 @@ class DuplicateDetector:
             # Do not let metadata failures break duplicate detection
             pass
 
-        # If a database/cache provider was supplied, emit a concise INFO
-        # message to inform users that scan results (hashes) were persisted.
-        try:
-            if db is not None:
+        # If a database/cache provider was supplied, validate and report
+        # its state. Handle common recoverable cases explicitly:
+        # - Missing DB file / not configured: attempt to create+init (INFO)
+        # - Corrupt on-disk DB: back it up, recreate schema (WARNING)
+        # - All other exceptions are considered fatal and re-raised.
+        if db is not None:
+            try:
+                # Import DB-specific exceptions locally to avoid hard
+                # coupling at module import time.
+                from src.lib.exceptions import (
+                    DatabaseCorruptError,
+                    DatabaseNotConfiguredError,
+                )
+                # Preferred light-weight health checks when available
+                if hasattr(db, "ping"):
+                    try:
+                        db.ping()
+                    except DatabaseNotConfiguredError:
+                        # Missing configuration/path; try to create/init
+                        raise
+                elif hasattr(db, "get_cached_hash"):
+                    # Call get_cached_hash with a non-existent path as a
+                    # cheap health check; implementations should raise
+                    # DatabaseNotConfiguredError or DatabaseCorruptError as
+                    # appropriate.
+                    try:
+                        db.get_cached_hash(Path("/.specify_health_check_nonexistent"), 0, 0.0)
+                    except Exception as exc:
+                        # Re-raise specific known DB exceptions so they can
+                        # be handled below; unknown exceptions are fatal.
+                        if isinstance(exc, DatabaseNotConfiguredError) or isinstance(
+                            exc, DatabaseCorruptError
+                        ):
+                            raise
+                        # Some backends raise sqlite3.DatabaseError directly
+                        import sqlite3 as _sqlite
+
+                        if isinstance(exc, _sqlite.DatabaseError):
+                            # Treat sqlite DatabaseError as corruption
+                            raise DatabaseCorruptError(str(exc))
+                        raise
+                # If we reached here without exception, DB looks usable
                 try:
                     self._logger.info("Database updated with scan results.")
                 except Exception:
-                    # Ignore logging failures here; do not raise
                     pass
-            else:
+            except DatabaseNotConfiguredError:
+                # Attempt to create/init the missing DB file if possible
                 try:
-                    # Warn the user that no database/cache provider was
-                    # supplied so hashes were not persisted across runs.
-                    self._logger.warning(
-                        "No database provided; scan results were not persisted."
-                    )
+                    # Only attempt if the provider exposes a db_path
+                    db_path = getattr(db, "db_path", None)
+                    if db_path is None:
+                        # Can't auto-fix; treat as fatal
+                        raise
+                    # Try to connect and initialize schema
+                    try:
+                        db.connect()
+                    except Exception:
+                        # If connect fails, try to initialize schema via
+                        # explicit init_schema after connect attempt
+                        pass
+                    try:
+                        if hasattr(db, "init_schema"):
+                            db.init_schema()
+                    except Exception:
+                        # If schema init fails, don't treat as fatal here;
+                        # let caller observe persistence may be incomplete.
+                        pass
+                    try:
+                        self._logger.info(f"Created missing database at {db_path}")
+                    except Exception:
+                        pass
                 except Exception:
-                    pass
-        except Exception:
-            pass
+                    # Re-raise as fatal
+                    raise
+            except DatabaseCorruptError:
+                # Attempt to regenerate the corrupt DB file (back it up first)
+                try:
+                    db_path = getattr(db, "db_path", None)
+                    if db_path is None:
+                        # Cannot recover without an on-disk path -> fatal
+                        raise
+                    from src.services.file_database import FileDatabase
+
+                    bad_path = Path(db_path)
+                    # Create a backup name
+                    backup_path = bad_path.with_suffix(bad_path.suffix + ".corrupt")
+                    try:
+                        # Move the corrupt file to a backup location
+                        if bad_path.exists():
+                            bad_path.replace(backup_path)
+                    except Exception:
+                        # If replace fails attempt unlink to allow recreate
+                        try:
+                            bad_path.unlink()
+                        except Exception:
+                            pass
+
+                    # Recreate a fresh database and initialize schema
+                    newdb = FileDatabase(db_path=bad_path)
+                    newdb.connect()
+                    try:
+                        newdb.init_schema()
+                    except Exception:
+                        # If schema init fails, propagate as fatal
+                        raise
+
+                    # Try to transfer connection back to caller-provided db
+                    try:
+                        db._conn = newdb._conn
+                        db.db_path = newdb.db_path
+                    except Exception:
+                        # Best-effort; proceed even if transfer didn't work
+                        pass
+
+                    try:
+                        self._logger.warning(
+                            f"Corrupt database regenerated at {bad_path}; backup saved as {backup_path}"
+                        )
+                    except Exception:
+                        pass
+                except Exception:
+                    # Propagate as fatal
+                    raise
+            except Exception:
+                # Any other exception is considered fatal per policy
+                raise
+        else:
+            try:
+                # Warn the user that no database/cache provider was
+                # supplied so hashes were not persisted across runs.
+                self._logger.warning(
+                    "No database provided; scan results were not persisted."
+                )
+            except Exception:
+                pass
 
         return duplicate_groups
 

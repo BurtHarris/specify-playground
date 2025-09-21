@@ -84,7 +84,7 @@ class TestCLIIntegration:
     def test_cli_basic_scan(self, temp_video_dir):
         """Test basic directory scanning without recursive."""
         result = subprocess.run(
-            ["python", "-m", "src", str(temp_video_dir)],
+            ["python", "-m", "src", "scan", str(temp_video_dir)],
             capture_output=True,
             text=True,
             cwd=str(self.workspace_dir),
@@ -101,6 +101,7 @@ class TestCLIIntegration:
                 "python",
                 "-m",
                 "src",
+                "scan",
                 "--recursive",
                 "--debug",
                 str(temp_video_dir),
@@ -124,6 +125,7 @@ class TestCLIIntegration:
                 "python",
                 "-m",
                 "src",
+                "scan",
                 "--export",
                 str(output_file),
                 str(temp_video_dir),
@@ -156,6 +158,7 @@ class TestCLIIntegration:
                 "python",
                 "-m",
                 "src",
+                "scan",
                 "--export",
                 str(output_file),
                 str(temp_video_dir),
@@ -188,6 +191,7 @@ class TestCLIIntegration:
                 "python",
                 "-m",
                 "src",
+                "scan",
                 "--export",
                 str(output_file),
                 str(temp_video_dir),
@@ -265,6 +269,7 @@ class TestCLIIntegration:
                 "python",
                 "-m",
                 "src",
+                "scan",
                 "--no-recursive",
                 "--export",
                 str(output_file),
@@ -296,7 +301,7 @@ class TestCLIIntegration:
     def test_cli_error_handling_nonexistent_directory(self):
         """Test CLI error handling for nonexistent directory."""
         result = subprocess.run(
-            ["python", "-m", "src", "/nonexistent/directory"],
+            ["python", "-m", "src", "scan", "/nonexistent/directory"],
             capture_output=True,
             text=True,
             cwd=str(self.workspace_dir),
@@ -308,7 +313,7 @@ class TestCLIIntegration:
     def test_cli_progress_reporting(self, temp_video_dir):
         """Test that CLI shows progress information."""
         result = subprocess.run(
-            ["python", "-m", "src", str(temp_video_dir)],
+            ["python", "-m", "src", "scan", str(temp_video_dir)],
             capture_output=True,
             text=True,
             cwd=str(self.workspace_dir),
@@ -330,7 +335,7 @@ class TestCLIIntegration:
     def test_cli_colorized_output(self, temp_video_dir):
         """Test that CLI produces colorized output when appropriate."""
         result = subprocess.run(
-            ["python", "-m", "src", str(temp_video_dir)],
+            ["python", "-m", "src", "scan", str(temp_video_dir)],
             capture_output=True,
             text=True,
             cwd=str(self.workspace_dir),
@@ -350,6 +355,7 @@ class TestCLIIntegration:
                 "python",
                 "-m",
                 "src",
+                "scan",
                 "--export",
                 str(output_file),
                 str(temp_video_dir),
