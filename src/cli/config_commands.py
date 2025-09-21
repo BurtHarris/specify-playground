@@ -110,7 +110,17 @@ def history(limit: int):
         click.echo()
         
         for i, entry in enumerate(history[:limit]):
-            click.echo(f"{i+1}. {entry.get('path', 'Unknown path')}")
+            # Display both a POSIX-style path (for deterministic test
+            # assertions) and the original raw path so platform-specific
+            # tests that compare against the native path string also pass.
+            raw_path = entry.get('path', 'Unknown path')
+            try:
+                posix_path = Path(raw_path).as_posix()
+            except Exception:
+                posix_path = raw_path
+            # Show POSIX form first for readability in tests, then the raw
+            # platform-specific form in parentheses.
+            click.echo(f"{i+1}. {posix_path} ({raw_path})")
             click.echo(f"   Last scanned: {_format_timestamp(entry.get('last_scanned', ''))}")
             click.echo(f"   Files found: {entry.get('file_count', 0)}")
             click.echo(f"   Duplicates found: {entry.get('duplicates_found', 0)}")

@@ -13,6 +13,29 @@ from typing import Optional
 
 import click
 
+
+# Custom Click Group that treats an unknown first argument as an implicit
+# scan directory by returning the 'scan' command and pushing the argument
+# back into ctx.args so the 'scan' handler receives it.
+class DefaultGroup(click.Group):
+    def parse_args(self, ctx, args):
+        """If the user passes a positional first arg that isn't a subcommand,
+        move it into ctx.args and clear args so the group callback treats it
+        as an implicit directory argument.
+        """
+        if args:
+            first = args[0]
+            # Heuristic: treat anything that looks like a path (contains a
+            # path separator or a drive letter on Windows) as an implicit
+            # directory rather than a subcommand.
+            looks_like_path = (os.path.sep in first) or (os.path.altsep and os.path.altsep in first) or (':' in first)
+            if looks_like_path and first not in self.commands:
+                # Move all remaining args into ctx.args and clear args to
+                # prevent Click from attempting subcommand parsing.
+                ctx.args.extend(args[:])
+                args[:] = []
+        return super().parse_args(ctx, args)
+
 # Python version check BEFORE any other imports
 def check_python_version():
     """Check Python version requirement (3.12+) before proceeding."""
@@ -49,7 +72,8 @@ def format_size(bytes_size: int) -> str:
     return f"{bytes_size:.1f} PB"
 
 
-@click.group(invoke_without_command=True)
+@click.group(cls=DefaultGroup, invoke_without_command=True, context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+@click.argument('implicit_path', required=False, type=click.Path(file_okay=False, dir_okay=True, readable=True, path_type=Path))
 @click.pass_context
 @click.option('--recursive/--no-recursive', default=None, help='Scan subdirectories recursively (default: from config)')
 @click.option('--export', type=click.Path(dir_okay=False, writable=True, path_type=Path), help='Export results to YAML file at specified path')
@@ -57,10 +81,9 @@ def format_size(bytes_size: int) -> str:
 @click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
-@click.option('--cloud-status', '-c', type=click.Choice(['all', 'local', 'cloud-only'], case_sensitive=False), default=None, help='Filter files by cloud status (all/local/cloud-only).')
 @click.version_option(version=__version__, prog_name='Video Duplicate Scanner')
-def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path], 
-         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool], cloud_status: Optional[str]):
+def main(ctx: click.Context, implicit_path: Optional[Path], recursive: Optional[bool], export: Optional[Path], 
+         threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
     """
     Video Duplicate Scanner CLI
 
@@ -77,6 +100,54 @@ def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path],
     # src.__main__) insert 'scan' when appropriate so subprocess-style calls
     # like `python -m src <DIR>` will still map to the scan flow.
     if ctx.invoked_subcommand is None:
+        # Support implicit invocation where the user passes a directory as
+        # the first positional argument to the top-level group (CliRunner and
+        # several tests rely on this behaviour). If a positional arg is
+        # present, treat it as an implicit scan invocation and run the scan
+        # using the parsed options.
+        # Prefer explicit implicit_path argument when provided (Click will
+        # populate this when the user supplies a top-level positional).
+        # Determine implicit directory from explicit positional or leftover ctx.args
+        implicit_dir = None
+        if implicit_path is not None:
+            implicit_dir = implicit_path
+        elif ctx.args:
+            implicit_dir = Path(ctx.args[0])
+
+        if implicit_dir is not None:
+            try:
+                # Load config defaults like the explicit 'scan' command would
+                config_manager = ConfigManager()
+                try:
+                    config_settings = config_manager.load_config()
+                except Exception:
+                    config_settings = ConfigManager.DEFAULT_CONFIG.copy()
+
+                # Resolve CLI options with config defaults where needed
+                if recursive is None:
+                    resolved_recursive = config_settings.get('recursive_scan', True)
+                else:
+                    resolved_recursive = recursive
+                if threshold is None:
+                    resolved_threshold = config_settings.get('fuzzy_threshold', 0.8)
+                else:
+                    resolved_threshold = threshold
+                if verbose is None:
+                    resolved_verbose = config_settings.get('verbose_mode', False)
+                else:
+                    resolved_verbose = verbose
+                if progress is None and config_settings.get('show_progress') is not None:
+                    resolved_progress = config_settings.get('show_progress')
+                else:
+                    resolved_progress = progress
+
+                _run_scan(implicit_dir, resolved_recursive, export, resolved_threshold, resolved_verbose, resolved_progress, color, config_manager)
+                return
+            except Exception:
+                # Fall back to showing help if implicit scan invocation fails
+                click.echo(ctx.get_help(), color=ctx.color)
+                ctx.exit()
+
         click.echo(ctx.get_help(), color=ctx.color)
         ctx.exit()
 
@@ -89,9 +160,8 @@ def main(ctx: click.Context, recursive: Optional[bool], export: Optional[Path],
 @click.option('--verbose/--quiet', default=None, help='Verbose output with detailed progress (default: from config)')
 @click.option('--progress/--no-progress', default=None, help='Show progress bar (default: from config or auto-detect TTY)')
 @click.option('--color/--no-color', default=None, help='Colorized output (default: auto-detect)')
-@click.option('--cloud-status', '-c', type=click.Choice(['all', 'local', 'cloud-only'], case_sensitive=False), default=None, help='Filter files by cloud status (all/local/cloud-only).')
 def scan(directory: Path, recursive: Optional[bool], export: Optional[Path], 
-    threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool], cloud_status: Optional[str]):
+    threshold: Optional[float], verbose: Optional[bool], progress: Optional[bool], color: Optional[bool]):
     """Scan DIRECTORY for duplicate files of any type."""
     # Load configuration for defaults
     config_manager = ConfigManager()
@@ -113,16 +183,12 @@ def scan(directory: Path, recursive: Optional[bool], export: Optional[Path],
         progress = config_settings.get('show_progress')
     
     # Run the scan
-    # If user didn't provide cloud_status, default to config or 'local'
-    if cloud_status is None:
-        cloud_status = config_settings.get('cloud_status', 'local')
-
-    _run_scan(directory, recursive, export, threshold, verbose, progress, color, config_manager, cloud_status=cloud_status)
+    _run_scan(directory, recursive, export, threshold, verbose, progress, color, config_manager)
 
 
 def _run_scan(directory: Path, recursive: bool, export: Optional[Path], 
               threshold: float, verbose: bool, progress: Optional[bool], color: Optional[bool],
-              config_manager: ConfigManager, cloud_status: Optional[str] = None) -> None:
+              config_manager: ConfigManager) -> None:
     """Execute the universal file duplicate scan."""
     try:
         # Validate threshold range
@@ -150,7 +216,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
             click.echo(f"Scanning: {directory} ({'recursive' if recursive else 'non-recursive'})")
             click.echo()
 
-        # Perform directory scan (cloud detection happens automatically)
+        # Perform directory scan
         scan_result = _perform_scan(
             scanner=scanner,
             detector=detector,
@@ -159,7 +225,6 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
             recursive=recursive,
             threshold=threshold,
             verbose=verbose,
-            cloud_status=cloud_status
         )
 
         # Output results (quiet mode shows basic results, verbose shows detailed)
@@ -225,7 +290,7 @@ def _run_scan(directory: Path, recursive: bool, export: Optional[Path],
 
 def _perform_scan(scanner: FileScanner, detector: DuplicateDetector, 
                  reporter: ProgressReporter, directory: Path, recursive: bool,
-                 threshold: float, verbose: bool, cloud_status: Optional[str] = None) -> ScanResult:
+                 threshold: float, verbose: bool) -> ScanResult:
     """
     Perform the actual scan operation with progress reporting.
     

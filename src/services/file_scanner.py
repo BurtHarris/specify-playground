@@ -11,10 +11,11 @@ from pathlib import Path
 from typing import Iterator, Set
 
 from ..models.file import UserFile
+from ..services.onedrive_service import OneDriveService
 
 # Optional debug switch (enable by setting SPECIFY_DEBUG_VALIDATE=1 in env)
-# Temporarily enable unconditionally to diagnose failing test; revert once fixed
-DEBUG_VALIDATE = True
+# Default off in simplified scanner
+DEBUG_VALIDATE = False
 
 
 class DirectoryNotFoundError(Exception):
@@ -31,6 +32,13 @@ class FileScanner:
     
     def __init__(self):
         """Initialize the VideoFileScanner."""
+        # Initialize OneDrive service for cloud status detection; service will
+        # gracefully degrade on non-Windows platforms. Tests may patch
+        # OneDriveService.detect_cloud_status_safe to simulate statuses.
+        try:
+            self._onedrive = OneDriveService()
+        except Exception:
+            self._onedrive = None
         pass
     
     def scan_directory(self, directory: Path, recursive: bool = False, metadata=None, progress_reporter=None, cloud_status: str = 'local') -> Iterator[UserFile]:
@@ -50,8 +58,8 @@ class FileScanner:
         ``UserFile`` instances. Directory-level permission errors (from
         listing) propagate to the caller.
         """
-        # Accept Path-like inputs but avoid resolving them to preserve test doubles
-        directory = directory if hasattr(directory, '__fspath__') and not isinstance(directory, str) else Path(directory)
+        # Normalized to a pathlib.Path; tests should use the real filesystem
+        directory = Path(directory)
 
         # Validate directory exists/isdir
         try:
@@ -126,6 +134,27 @@ class FileScanner:
                     if progress_reporter:
                         progress_reporter.update_progress(files_processed, f"Processing: {getattr(file_path, 'name', str(file_path))}")
                     user_file = UserFile(file_path)
+                    # Populate cloud status if service available; cache on the
+                    # UserFile instance so repeated accesses don't re-run
+                    # detection. Tests patch OneDriveService.detect_cloud_status_safe.
+                    try:
+                        if self._onedrive is not None:
+                            status = self._onedrive.detect_cloud_status_safe(file_path)
+                            if status is not None:
+                                # Use enum-based checks to set flags reliably
+                                user_file.cloud_status = status
+                                try:
+                                    from ..models.cloud_file_status import CloudFileStatus
+                                    user_file.is_cloud_only = (status == CloudFileStatus.CLOUD_ONLY)
+                                    user_file.is_local = (status == CloudFileStatus.LOCAL)
+                                except Exception:
+                                    # If status is not the expected enum, fallback
+                                    user_file.is_cloud_only = False
+                                    user_file.is_local = True
+                    except Exception:
+                        # On detection error, leave defaults (assume local)
+                        pass
+
                     if self._should_include_file(user_file, cloud_status):
                         yield user_file
                     files_processed += 1
@@ -143,7 +172,8 @@ class FileScanner:
 
     def scan_recursive(self, directory: Path, metadata=None, progress_reporter=None, cloud_status: str = 'local') -> Iterator[UserFile]:
         """Recursively scan ``directory`` for video files."""
-        directory = directory if hasattr(directory, '__fspath__') and not isinstance(directory, str) else Path(directory)
+        # Normalized to a pathlib.Path; tests should use the real filesystem
+        directory = Path(directory)
 
         # Validate root
         try:
@@ -364,106 +394,41 @@ class FileScanner:
             - MUST validate file extension
             - MUST NOT raise exceptions for invalid files
         """
-        # Normalize display string for diagnostics (best-effort)
+        # Simplified validation that uses real filesystem semantics.
+        # Any failure returns False rather than raising.
         try:
-            fp_display = os.fspath(file_path)
+            path = Path(file_path)
         except Exception:
             try:
-                fp_display = str(file_path)
-            except Exception:
-                fp_display = repr(file_path)
-
-        # Prefer to preserve Path-like objects and test mocks. Many tests pass
-        # Mock(spec=Path) or objects implementing __fspath__. Converting those
-        # to a real Path can lose mock behavior and make patched methods
-        # (like .is_file/.stat) not be used. Treat any object that is already a
-        # Path instance, a Mock (has _mock_name), or implements __fspath__ as
-        # path-like and don't re-wrap it.
-        if isinstance(file_path, Path) or hasattr(file_path, '_mock_name') or hasattr(file_path, '__fspath__'):
-            resolved_path = file_path
-        else:
-            resolved_path = Path(file_path)
-
-        # For real pathlib.Path instances, attempt to resolve; for mocks or
-        # other path-like test doubles, skip resolution to preserve mocked
-        # methods like .stat() and .suffix. Use type check to avoid objects
-        # that merely implement the Path interface (e.g., Mock(spec=Path)).
-        try:
-            if type(resolved_path) is Path:
-                resolved_path = resolved_path.resolve()
-        except (AttributeError, TypeError, OSError):
-            # If resolution fails, continue with original object
-            pass
-
-        is_mock = hasattr(resolved_path, '_mock_name')
-        if DEBUG_VALIDATE:
-            print(f"[validate_file] is_mock={is_mock}, resolved_path={resolved_path!r}")
-
-        # For Mock(spec=Path) test doubles, do not call exists()/is_file()
-        # because tests commonly construct mocks with .is_file and .stat but
-        # without configuring exists(). Instead, validate using the mocked
-        # is_file and suffix/stat behavior directly.
-        if not is_mock:
-            # Check file existence
-            try:
-                exists_val = resolved_path.exists()
+                path = Path(str(file_path))
             except Exception:
                 return False
-            if not exists_val:
+
+        try:
+            if not path.exists() or not path.is_file():
                 return False
+        except Exception:
+            return False
 
-            # Check it's actually a file
-            try:
-                is_file_val = resolved_path.is_file()
-            except Exception:
+        try:
+            if path.suffix.lower() not in self.VIDEO_EXTENSIONS:
                 return False
-            if not is_file_val:
+        except Exception:
+            return False
+
+        try:
+            if not os.access(path, os.R_OK):
                 return False
-
-        # Check file extension (works for real Paths and mocks that provide suffix)
-        try:
-            is_video = self._is_video_file(resolved_path)
         except Exception:
-            if DEBUG_VALIDATE:
-                print("[validate_file] _is_video_file raised")
-            return False
-        if not is_video:
-            if DEBUG_VALIDATE:
-                print(f"[validate_file] not a video (suffix={getattr(resolved_path, 'suffix', None)})")
             return False
 
-        # Check read permissions (skip for mock objects that don't support os.access)
         try:
-            if not hasattr(resolved_path, '_mock_name'):
-                if not os.access(resolved_path, os.R_OK):
-                    return False
-        except (TypeError, OSError):
-            # If os.access can't handle the object, assume accessible
-            pass
-
-        # Stat MUST succeed for a file to be considered valid. If stat()
-        # raises (e.g., tests simulate OSError), treat the file as invalid
-        # and skip it. This matches expected test behavior.
-
-        # stat() MUST succeed for the file to be valid. If stat() raises
-        # an exception (e.g., OSError), treat the file as invalid.
-        try:
-            stat_result = resolved_path.stat()
+            stat_result = path.stat()
+            size = int(getattr(stat_result, 'st_size', 0))
         except Exception:
-            if DEBUG_VALIDATE:
-                print("[validate_file] stat() raised")
             return False
 
-        try:
-            size = int(getattr(stat_result, 'st_size', None))
-        except Exception:
-            if DEBUG_VALIDATE:
-                print(f"[validate_file] size coercion failed, stat_result={stat_result!r}")
-            return False
-
-        if size == 0:
-            if DEBUG_VALIDATE:
-                print("[validate_file] zero size, skipping")
+        if size <= 0:
             return False
 
         return True
