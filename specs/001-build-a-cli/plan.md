@@ -2,7 +2,7 @@
 # Implementation Plan: Video Duplicate Scanner CLI
 
 **Branch**: `001-build-a-cli` | **Date**: September 17, 2025 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/00## Progress Tracking
+**Input**: Feature specification from `/specs/001-build-a-cli/spec.md`
 *This checklist is updated during execution flow*
 
 **Phase Status**:
@@ -17,7 +17,7 @@
 - [x] Initial Constitution Check: PASS
 - [x] Post-Design Constitution Check: PASS
 - [x] All NEEDS CLARIFICATION resolved
-- [x] Complexity deviations documented (none required)ec.md`
+- [x] Complexity deviations documented (none required)
 
 ## Execution Flow (/plan command scope)
 ```
@@ -208,4 +208,4 @@ ios/ or android/
 | [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
 
 ---
-*Based on Constitution v2.1.1 - See `/memory/constitution.md`*
+*Based on Constitution v2.1.2 - See `/memory/constitution.md`*
