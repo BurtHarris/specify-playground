@@ -40,6 +40,8 @@ Note: Tests must not introduce path/file mocking; adapt existing tests or use in
 Database foundation
 - T006 Implement `src/services/file_database.py`: FileDatabase class with SQLite backend, basic methods: connect(), init_schema(), get_cached_hash(path, size, mtime), set_cached_hash(path, size, mtime, hash). Acceptance: module provides class and schema SQL in `src/services/schema.sql`.
 
+- [x] T006 Implement `src/services/file_database.py`: FileDatabase class with SQLite backend, basic methods: connect(), init_schema(), get_cached_hash(path, size, mtime), set_cached_hash(path, size, mtime, hash). Acceptance: module provides class and schema SQL in `src/services/schema.sql`.
+
 - T007 [P] Implement database-less fallback: when DB is missing/corrupt, FileDatabase raises a specific exception and higher-level code falls back to ephemeral in-memory cache. Files: `src/services/file_database.py`, `src/lib/exceptions.py`.
 
 Model refactor
