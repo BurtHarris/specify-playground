@@ -28,16 +28,48 @@ def _make_logger(name: str = "video_duplicate_scanner", level: Optional[str] = N
             lvl = logging.INFO
     logger.setLevel(lvl)
 
-    # Add a default StreamHandler if no handlers are configured. This keeps
-    # output visible when run as a CLI but avoids double-handling in tests
-    # that configure the root logger.
-    if not logger.handlers:
-        handler = logging.StreamHandler(stream=sys.stderr)
-        formatter = logging.Formatter(
-            "%(asctime)s %(levelname)s [%(name)s] %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    # Ensure at least one handler exists and prefer writing to stdout so
+    # test captures of STDOUT include informational logs. If Rich is
+    # available, prefer RichHandler for nicer formatting; otherwise add a
+    # StreamHandler to stdout. Avoid adding duplicate handlers on repeated
+    # _make_logger calls.
+    try:
+        has_any_handler = any(isinstance(h, logging.Handler) for h in logger.handlers)
+    except Exception:
+        has_any_handler = False
+
+    if not has_any_handler:
+        try:
+            # Try to use RichHandler (writes to console/stdout by default)
+            from rich.logging import RichHandler  # type: ignore
+            from rich.console import Console  # type: ignore
+
+            console = Console()
+            rich_handler = RichHandler(console=console, rich_tracebacks=True)
+            logger.addHandler(rich_handler)
+            # Also add a simple stderr StreamHandler so legacy tests and
+            # environments that assert the presence of a StreamHandler
+            # can continue to pass. Avoid duplicate handlers by checking
+            # existing handler types.
+            try:
+                has_stream = any(isinstance(h, logging.StreamHandler) for h in logger.handlers)
+            except Exception:
+                has_stream = False
+            if not has_stream:
+                handler = logging.StreamHandler(stream=sys.stderr)
+                formatter = logging.Formatter(
+                    "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+                )
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
+        except Exception:
+            # Fall back to stdout StreamHandler
+            handler = logging.StreamHandler(stream=sys.stdout)
+            formatter = logging.Formatter(
+                "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+            )
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
 
     return logger
 

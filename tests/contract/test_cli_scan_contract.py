@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from click.testing import CliRunner
+from tests.cli_runner_compat import CliRunner
 
 from src.cli.main import main
 

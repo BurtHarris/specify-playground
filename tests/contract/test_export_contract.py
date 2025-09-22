@@ -11,7 +11,7 @@ All tests MUST FAIL initially (TDD requirement) until implementation is complete
 import pytest
 import yaml
 from pathlib import Path
-from click.testing import CliRunner
+from tests.cli_runner_compat import CliRunner
 import tempfile
 import shutil
 

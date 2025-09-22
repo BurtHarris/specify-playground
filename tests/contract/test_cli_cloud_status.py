@@ -17,11 +17,11 @@ pytest.skip(
 )
 
 if TYPE_CHECKING:
-    from click.testing import CliRunner
+    from tests.cli_runner_compat import CliRunner
     from src.cli.main import cli
 else:
     try:
-        from click.testing import CliRunner
+        from tests.cli_runner_compat import CliRunner
         from src.cli.main import cli
     except ImportError:
         # Stub for TDD

@@ -23,7 +23,7 @@ try:
     from src.models.scan_result import ScanResult
     from src.models.scan_metadata import ScanMetadata
     from src.cli.main import main
-    from click.testing import CliRunner
+    from tests.cli_runner_compat import CliRunner
 except ImportError:
     # Expected to fail initially - create stubs for testing
     from src.services.file_scanner import FileScanner

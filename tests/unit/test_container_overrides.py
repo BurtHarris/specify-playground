@@ -31,7 +31,7 @@ def test_hasher_override_and_permission_skip(tmp_path):
     bad = tmp_path / "noaccess.bin"
     a.write_bytes(b"hello")
     b.write_bytes(b"hello")
-    bad.write_bytes(b"secret")
+    bad.write_bytes(b"TEST_PLACEHOLDER_SECRET")
 
     c = Container()
 

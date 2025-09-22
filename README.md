@@ -62,6 +62,12 @@ python -m src /path/to/videos --debug
 python -m src /path/to/videos --export results.yaml
 ```
 
+### Typer adapter and entrypoints
+
+The project includes a Typer-based CLI adapter that delegates to the shared scan implementation in `src.cli.main`. Package entrypoints are updated to use the Typer adapter (script target `src.cli.typer_cli:cli_main`), and the module runner `python -m src` continues to work and will dispatch the `scan` subcommand automatically when a directory argument is provided.
+
+Programmatic test invocation of the Typer app is supported via the exported `app` proxy which returns an integer exit code when commands terminate with a non-zero status so tests can assert return codes without the process exiting.
+
 ### Cloud Status Filtering
 
 Filter scans based on OneDrive cloud status:

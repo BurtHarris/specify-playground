@@ -20,7 +20,7 @@ try:
     from src.services.duplicate_detector import DuplicateDetector
     from src.services.progress_reporter import ProgressReporter
     from src.cli.main import main
-    from click.testing import CliRunner
+    from tests.cli_runner_compat import CliRunner
 except ImportError:
     # Expected to fail initially - create stubs for testing
     from src.services.file_scanner import FileScanner

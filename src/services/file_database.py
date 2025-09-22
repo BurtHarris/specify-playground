@@ -122,11 +122,75 @@ def get_database(db_path: Optional[Path] = None):
     # schema is present; do not force schema initialization which can fail
     # when upgrading or when indexes reference older column names. If the
     # file does not exist, create it and initialize the schema.
+    import logging
+
+    logger = logging.getLogger("video_duplicate_scanner")
+
     try:
         if db_path.exists():
+            # If a directory was supplied where a file is expected,
+            # do not attempt to open it as SQLite; fall back to in-memory.
+            if db_path.is_dir():
+                logger = logging.getLogger("video_duplicate_scanner")
+                logger.warning(f"Database path {db_path} is a directory; using in-memory fallback")
+                return InMemoryFileDatabase()
+            # Try opening existing DB; if it's corrupt, attempt to backup
+            # and recreate a fresh DB (regenerate).
             db = FileDatabase(db_path=db_path)
-            db.connect()
-            return db
+            try:
+                # Connect and perform a quick sanity query to detect
+                # malformed or non-sqlite files which sqlite3.connect
+                # may not raise for on some platforms.
+                db.connect()
+                try:
+                    cur = db._conn.cursor()
+                    cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+                    _ = cur.fetchone()
+                except sqlite3.DatabaseError:
+                    # Treat as corruption to trigger regeneration logic
+                    raise DatabaseCorruptError("Database file appears corrupt or invalid")
+                return db
+            except DatabaseCorruptError:
+                # Ensure any open connection is closed before manipulating the
+                # on-disk file (important on Windows where open handles
+                # prevent rename/unlink operations).
+                try:
+                    if getattr(db, "_conn", None):
+                        try:
+                            db._conn.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                # Backup the corrupt file and recreate
+                bad_path = Path(db_path)
+                backup_path = bad_path.with_suffix(bad_path.suffix + ".corrupt")
+                # Try an atomic replace first; fall back to shutil.move which
+                # is more tolerant on Windows filesystems.
+                try:
+                    if bad_path.exists():
+                        bad_path.replace(backup_path)
+                except Exception:
+                    try:
+                        import shutil
+
+                        if bad_path.exists():
+                            shutil.move(str(bad_path), str(backup_path))
+                    except Exception:
+                        # If move fails try unlink; if that fails, re-raise
+                        try:
+                            bad_path.unlink()
+                        except Exception:
+                            raise
+
+                # Create fresh DB and initialize schema
+                newdb = FileDatabase(db_path=bad_path)
+                newdb.connect()
+                newdb.init_schema()
+                logger.warning(f"Corrupt database regenerated at {bad_path}; backup saved as {backup_path}")
+                return newdb
+
         # New DB file: create and initialize schema
         db = FileDatabase(db_path=db_path)
         db.connect()
@@ -138,4 +202,5 @@ def get_database(db_path: Optional[Path] = None):
             return InMemoryFileDatabase()
         return db
     except DatabaseCorruptError:
+        # If creation fails due to corruption, fall back to in-memory
         return InMemoryFileDatabase()

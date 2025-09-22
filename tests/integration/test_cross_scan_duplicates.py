@@ -2,7 +2,7 @@ from pathlib import Path
 import time
 
 import pytest
-from click.testing import CliRunner
+from tests.cli_runner_compat import CliRunner
 
 from src.cli.main import main
 

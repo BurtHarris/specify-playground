@@ -30,48 +30,48 @@ class CommandFirstGroup(click.Group):
 
     def resolve_command(self, ctx, args):
         if args:
-            potential = args[0]
-            # Ensure a string form for membership checks since Click may
-            # coerce positional args to Path objects when path_type=Path.
-            try:
-                potential_str = (
-                    potential if isinstance(potential, str) else str(potential)
-                )
-            except Exception:
-                potential_str = str(potential)
-
-            # If the first token is a registered subcommand, dispatch to it.
-            if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
+            # Walk the provided args to find the first non-option token. If
+            # the token matches a registered subcommand, dispatch to it. If
+            # the token is an existing directory path and a 'scan' command
+            # is available, treat the invocation as an implicit 'scan'
+            # subcommand. This also preserves options placed before the
+            # directory (e.g. --export out.yaml /path/to/dir).
+            for i, potential in enumerate(args):
+                # Skip option-looking tokens
                 try:
-                    print(
-                        f"[CommandFirstGroup] args={args}, potential={potential!r}, commands={list(self.commands.keys())}"
-                    )
+                    potential_str = potential if isinstance(potential, str) else str(potential)
                 except Exception:
-                    pass
-            if potential_str in self.commands:
-                if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
-                    print(
-                        f"[CommandFirstGroup] resolving to subcommand {potential_str}"
-                    )
-                return potential_str, self.commands[potential_str], args[1:]
+                    potential_str = str(potential)
 
-            # If the first token looks like an existing directory and a
-            # If the first token looks like an existing directory, treat it
-            # as an implicit invocation of the 'scan' subcommand so callers
-            # that pass a directory at the top level (tests and users)
-            # automatically dispatch to the scan command. This keeps
-            # behavior compatible with previous implicit-invocation tests.
-            try:
-                from pathlib import Path
+                if potential_str.startswith("-"):
+                    continue
 
-                p = Path(potential_str)
-                if p.exists() and p.is_dir() and "scan" in self.commands:
+                # If the token is an explicit registered subcommand, dispatch
+                if potential_str in self.commands:
                     if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
-                        print(f"[CommandFirstGroup] treating {potential_str} as 'scan' subcommand")
-                    return "scan", self.commands["scan"], args[1:]
-            except Exception:
-                # Ignore errors and fall through to default resolution
-                pass
+                        try:
+                            print(
+                                f"[CommandFirstGroup] resolving to subcommand {potential_str}"
+                            )
+                        except Exception:
+                            pass
+                    # Return the command and the remaining args after the command
+                    return potential_str, self.commands[potential_str], args[i+1:]
+
+                # Otherwise, if the token looks like an existing directory,
+                # treat it as implicit 'scan'
+                try:
+                    from pathlib import Path
+
+                    p = Path(potential_str)
+                    if p.exists() and p.is_dir() and "scan" in self.commands:
+                        if os.environ.get("SPECIFY_DEBUG_ARGV") == "1":
+                            print(f"[CommandFirstGroup] treating {potential_str} as 'scan' subcommand")
+                        # Preserve all args (including options before/after the dir)
+                        return "scan", self.commands["scan"], args
+                except Exception:
+                    # Ignore errors and continue scanning tokens
+                    pass
         return super().resolve_command(ctx, args)
 
 
@@ -277,6 +277,19 @@ def run(directory, recursive, patterns, db_path, verbose, debug, warning, export
     except Exception:
         logger = None
 
+    # Apply central logger level overrides based on CLI flags so all
+    # container-provided collaborators share the same logging level.
+    try:
+        if container is not None:
+            if debug:
+                container.config.logger.level.from_value("DEBUG")
+            elif warning:
+                container.config.logger.level.from_value("WARNING")
+            elif verbose:
+                container.config.logger.level.from_value("INFO")
+    except Exception:
+        pass
+
     # Create scanner from container providers when available
     try:
         db_instance = container.database(db_path) if container is not None else None
@@ -306,13 +319,14 @@ def run(directory, recursive, patterns, db_path, verbose, debug, warning, export
             exporter.export(result, Path(export))
         except DiskSpaceError:
             click.echo("Disk space error while writing export", err=True)
-            sys.exit(5)
+            return 5
         except Exception as exc:
             click.echo(f"Failed to export results: {exc}", err=True)
-            sys.exit(6)
+            return 6
 
     # Print a short summary to stdout
     click.echo(f"Found {len(result.duplicate_groups)} duplicate groups and {len(result.potential_match_groups)} potential match groups")
+    return 0
 
 
 cli.add_command(config)
@@ -557,7 +571,7 @@ def scan(
     if debug and not verbose:
         verbose = True
 
-    _run_scan(
+    rc = _run_scan(
         directory,
         db_path,
         pattern_list,
@@ -571,6 +585,9 @@ def scan(
         debug,
         warning,
     )
+    # Propagate exit code to the Click top-level command
+    if isinstance(rc, int) and rc != 0:
+        sys.exit(rc)
 
 
 def _run_scan(
@@ -589,10 +606,18 @@ def _run_scan(
 ) -> None:
     """Execute the universal file duplicate scan."""
     try:
+        # When not in verbose mode, suppress library logging to keep CLI
+        # output minimal for scripting and tests. Save previous state so it
+        # can be restored in the finally block below.
+        _logging_disabled = False
+        if not verbose:
+            logging.disable(logging.CRITICAL)
+            _logging_disabled = True
+
         # Validate threshold range
         if not 0.0 <= threshold <= 1.0:
             click.echo("Error: Threshold must be between 0.0 and 1.0", err=True)
-            sys.exit(1)
+            return 1
 
         # Set up progress reporting
         if progress is None:
@@ -735,13 +760,13 @@ def _run_scan(
                     click.echo(f"\nResults exported to: {export}")
             except DiskSpaceError as e:
                 click.echo(f"Error: {e}", err=True)
-                sys.exit(4)
+                return 4
             except PermissionError as e:
                 click.echo(
                     f"Error: Cannot write to {export}: Permission denied",
                     err=True,
                 )
-                sys.exit(2)
+                return 2
 
         # Update scan history before completing
         try:
@@ -752,7 +777,7 @@ def _run_scan(
             if verbose:
                 click.echo(f"Warning: Could not update scan history: {e}", err=True)
 
-        # Exit with appropriate code
+    # Exit with appropriate code
         if scan_result.metadata.errors:
             # Had errors but completed - show error summary
             click.echo(
@@ -772,10 +797,10 @@ def _run_scan(
                     )
             else:
                 click.echo("  Use --verbose to see error details", err=True)
-            sys.exit(0)
+            return 0
         else:
             # Clean success
-            sys.exit(0)
+            return 0
 
     except DirectoryNotFoundError as e:
         click.echo(
@@ -783,23 +808,30 @@ def _run_scan(
             err=True,
         )
         click.echo("Use --help for usage information.", err=True)
-        sys.exit(1)
+        return 1
     except PermissionError as e:
         click.echo(
             f"Error: Permission denied accessing directory '{directory}'",
             err=True,
         )
-        sys.exit(2)
+        return 2
     except KeyboardInterrupt:
         click.echo("\nScan interrupted by user.", err=True)
-        sys.exit(1)
+        return 1
     except Exception as e:
         click.echo(f"Unexpected error: {e}", err=True)
         if verbose:
             import traceback
 
             traceback.print_exc()
-        sys.exit(1)
+        return 1
+    finally:
+        # Restore logging behavior if it was disabled above
+        try:
+            if '_logging_disabled' in locals() and _logging_disabled:
+                logging.disable(logging.NOTSET)
+        except Exception:
+            pass
 
 
 def _perform_scan(

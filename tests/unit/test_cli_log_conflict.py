@@ -1,6 +1,7 @@
 import logging
-from click.testing import CliRunner
 from pathlib import Path
+
+from tests.cli_runner_compat import CliRunner
 
 from src.cli.main import main
 from src.lib.container import Container

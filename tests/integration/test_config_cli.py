@@ -7,7 +7,7 @@ Tests the config command group and its integration with the main CLI.
 
 import tempfile
 from pathlib import Path
-from click.testing import CliRunner
+from tests.cli_runner_compat import CliRunner
 from unittest.mock import patch
 
 from src.cli.main import main

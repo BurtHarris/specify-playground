@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 2.1.1 -> 2.1.2
-- Modified principles: placeholders filled with concrete principle titles and descriptions (no renames)
-- Added sections: Operational Constraints, Development Workflow (concretized)
-- Removed sections: none
-- Templates requiring updates: /.specify/templates/plan-template.md ✅ updated
-						 /.specify/templates/spec-template.md ✅ updated
-						 /.specify/templates/tasks-template.md ✅ updated
-						 /specs/* (plans referencing old version) ⚠ pending manual sync
-- Follow-up TODOs: RATIFICATION_DATE intentionally deferred (TODO)
+- Version change: 2.1.2 -> 3.0.0
+- Modified principles: Library-First (clarified), CLI policy changed to Typer-preferred
+- Added sections: Prototype Policy, Minimal Operational Constraints (prototype-focused)
+- Removed sections: strict Click mandate (replaced by Typer preference)
+- Templates requiring updates: /.specify/templates/plan-template.md ⚠ pending
+						 /.specify/templates/spec-template.md ⚠ pending
+						 /.specify/templates/tasks-template.md ⚠ pending
+						 /.specify/templates/commands/*.md ⚠ pending
+- Follow-up TODOs: Update templates to reflect Typer preference; verify CI entrypoints; remove Click-mandates from docs if present
 -->
 
 # Video Duplicate Scanner Constitution
@@ -16,47 +16,44 @@ Sync Impact Report
 ## Core Principles
 
 ### I. Library-First
-Every feature MUST begin as a reusable library or module. Libraries MUST be self-contained, have a clear public contract, and include unit tests and documentation. Consumers (CLI, services, or other libraries) SHOULD depend on libraries rather than on ad-hoc scripts.
+Every feature MUST begin as a reusable library or module with a clear public contract and unit tests. The CLI, services, and any UI layer MUST call into these libraries — not the other way around. Implementations MUST be small, focused, and composable.
 
-### II. CLI Interface
-All user-facing functionality MUST be exposed via a well-documented CLI where applicable. CLI behavior MUST follow text I/O conventions: stdin/args → stdout for data and human output, and stderr for errors and diagnostics. Structured output formats (YAML, JSON) MUST be supported for machine consumption.
+### II. Prototype & DRY (PRIMARY)
+For this standalone prototype, DRY, simplicity, and forward momentum are REQUIRED. Work spent on backward compatibility or migration scaffolding for pre-v1 artifacts is counter-productive and MUST be avoided. Code SHOULD be minimal and idiomatic; duplication is only acceptable when it reduces complexity and improves clarity for the prototype timeframe.
 
-### III. Test-First (NON-NEGOTIABLE)
-Tests MUST be authored before implementation for any new behavior: failing contract/integration tests first, then implementation to make tests pass (Red-Green-Refactor). Test coverage MUST include unit tests for libraries, contract tests for public APIs, and integration tests for cross-component behavior.
+Rationale: The project is a prototype without legacy constraints; prioritizing DRY and minimal, testable code accelerates iteration and reduces maintenance overhead.
 
-### IV. Integration Testing
-Integration tests MUST validate interactions between components, contracts, and external dependencies. Integration tests MUST be included for new library contracts, breaking-interface changes, and any feature that spans multiple modules or external services.
+### III. Unified CLI (Typer-preferred)
+The project MUST expose a unified, easy-to-use CLI. For this prototype Typer is the PREFERRED CLI framework due to its concise decorators, type-hint-driven parsing, and ergonomic programmatic call patterns. Using Typer reduces boilerplate and keeps CLI code DRY.
 
-### V. Observability, Versioning & Simplicity
-Observability: Runtime artifacts MUST emit structured logs and include sufficient metadata to debug issues; metrics and progress reporting SHOULD be included for long-running operations.
-Versioning: Semantic versioning (MAJOR.MINOR.PATCH) MUST be used for released artifacts; breaking changes MUST increment MAJOR, new capabilities that remain backward compatible increment MINOR, and clarifications/typo fixes increment PATCH.
-Simplicity: Design decisions MUST favor simplicity; unnecessary complexity is prohibited. YAGNI (You Ain't Gonna Need It) principles SHOULD guide feature additions.
+Rationale: Typer reduces ceremony and helps keep CLI adapter code minimal for fast iteration. Exceptions to Typer are allowed only when a clear, documented technical need for Click-specific behaviour exists.
 
-## Operational Constraints
-The project defines a minimal operational standard to ensure consistency:
-- Language/runtime: Python 3.12+ is REQUIRED for development and CI.
-- Filesystem API: `pathlib.Path` MUST be used for file operations; cross-platform compatibility (Windows, macOS, Linux) is REQUIRED.
-- CLI framework: Click is the standard CLI framework for command parsing.
-- Hashing: Streaming hash computation MUST be used for large files to limit memory usage; a modern keyed hash (e.g., blake2b) is RECOMMENDED for performance with a clear migration path if algorithm changes are required.
-- Database/cache: SQLite (WAL mode) is the authorized on-disk cache for local sessions; designs that require higher scale MUST document migration steps.
-- Error handling: Scans MUST continue on individual file errors and record failures in structured metadata.
+### IV. Test-First (NON-NEGOTIABLE)
+Tests MUST be written before or alongside implementation. Contract and integration tests that define public behaviour are REQUIRED. Unit tests MUST accompany all library code. CI MUST run the full test matrix on every PR.
+
+### V. Simplicity & Observability
+Simplicity is a rule: prefer minimal APIs, clear data shapes, and explicit error handling. Observability requirements are minimal for prototype: logging (structured when convenient) and concise progress reporting MUST exist for long-running tasks. Keep observability lightweight and opt-in.
+
+## Prototype Policy
+- Avoid optimization until correctness and tests are in place.
+- No compatibility layers for previous CLI frameworks unless strictly necessary.
+- Dependencies SHOULD be minimal and well-justified.
+- Rapid experiment branches are permitted; merge to main only when accompanied by tests and documentation for the change.
+
+## Minimal Operational Constraints
+- Language/runtime: Python 3.12+ REQUIRED.
+- File API: `pathlib.Path` MUST be used for filesystem operations.
+- Hashing: Use streaming hashing for large files; prefer blake2b or SHA-256; document algorithm choice in code comments.
+- Persistence: For prototype, an in-memory or simple SQLite-backed cache is acceptable; clear migration plan REQUIRED if switching storage later.
+- CLI: Typer PREFERRED; keep a lightweight adapter for programmatic use when tests need it.
+- Error handling: Failures on individual files MUST be recorded and not abort full scans.
 
 ## Development Workflow
-- All work MUST follow Test-Driven Development (see Principle III).
-- Pull requests MUST include failing tests for new behavior and pass CI with linting and unit/integration tests.
-- Code reviews: At least one approver is REQUIRED for non-trivial changes; for constitution or governance changes, two maintainers or a documented majority of approvers are REQUIRED.
-- Quality gates: Builds MUST pass formatting, linting, and tests before merge; integration changes MUST include contract test updates.
+- Continue to follow Test-First discipline.
+- Small, focused PRs are encouraged; each PR MUST include at least one relevant test and a short description of the change.
+- Reviewers MUST prioritize simplicity and DRY implementations during reviews.
 
 ## Governance
-Amendments to this constitution REQUIRE a documented PR that explains the change, adds or updates tests/templates affected by the change, and provides a migration plan where applicable. Amendments MUST be reviewed and approved by at least two project maintainers (or a documented majority when the maintainer count is greater than two). Emergency fixes MAY be applied with at least one maintainer approval and must be followed by a retrospective PR that formalizes the change.
+Amendments to this constitution require a PR with tests and template updates where applicable. For prototype-only governance, a single maintainer MAY ratify minor clarifications, but MAJOR governance changes (principle removal or redefinition) MUST have explicit agreement from two maintainers.
 
-Versioning policy for the constitution:
-- MAJOR: Reserved for backward-incompatible governance changes (principle removal or redefinition).
-- MINOR: New principle or material expansion of guidance.
-- PATCH: Clarifications, wording fixes, and placeholder resolution.
-
-Compliance Review Expectations:
-- Every `/plan` execution MUST run the Constitution Check section and record PASS/FAIL in the plan's Phase 0 output.
-- Templates that reference constitution rules MUST be updated as part of any amendment PR.
-
-**Version**: 2.1.2 | **Ratified**: 2025-09-20 | **Last Amended**: 2025-09-20
+**Version**: 3.0.0 | **Ratified**: 2025-09-21 | **Last Amended**: 2025-09-21

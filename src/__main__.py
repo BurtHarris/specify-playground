@@ -16,7 +16,11 @@ import sys
 import os
 from pathlib import Path
 
-from src.cli.main import main
+try:
+    # Prefer Typer adapter when present
+    from src.cli.typer_cli import cli_main as main
+except Exception:
+    from src.cli.main import main  # type: ignore
 
 
 # Enforce Python runtime version requirement early (T001)

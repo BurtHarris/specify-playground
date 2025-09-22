@@ -36,3 +36,7 @@ dependency-injector>=4.40.0
 
 # Rich for improved console rendering and integrated logging/progress
 rich>=13.0.0
+typer>=0.10.0
+platformdirs>=2.6.0
+readchar>=4.0.0
+truststore>=0.10.4

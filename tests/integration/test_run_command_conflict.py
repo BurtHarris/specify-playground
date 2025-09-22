@@ -1,4 +1,4 @@
-from click.testing import CliRunner
+from tests.cli_runner_compat import CliRunner
 from pathlib import Path
 
 from src.cli.main import main
