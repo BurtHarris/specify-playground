@@ -5,16 +5,16 @@ Contains all data model classes for representing video files,
 duplicate groups, potential matches, and scan results.
 """
 
-from .video_file import VideoFile
+from .file import UserFile
 from .duplicate_group import DuplicateGroup
 from .potential_match_group import PotentialMatchGroup
 from .scan_metadata import ScanMetadata
 from .scan_result import ScanResult
 
 __all__ = [
-    'VideoFile',
-    'DuplicateGroup', 
-    'PotentialMatchGroup',
-    'ScanMetadata',
-    'ScanResult'
+    "UserFile",
+    "DuplicateGroup",
+    "PotentialMatchGroup",
+    "ScanMetadata",
+    "ScanResult",
 ]

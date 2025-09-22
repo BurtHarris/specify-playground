@@ -1,0 +1,26 @@
+duplicate_groups:
+- file_count: 2
+  files:
+  - hash: 3f795881c6165d48af044fe2d213a9d33e542473423afc092a1458014ca8cf86741895ac5b7e785c0c13f6f04814c9e4621ac65d114ab6b916f1c774030becf9
+    path: E:\specify-playground\tests\tmp_integration_scan\dup1.txt
+    size_bytes: 12
+    size_human: 12 B
+  - hash: 3f795881c6165d48af044fe2d213a9d33e542473423afc092a1458014ca8cf86741895ac5b7e785c0c13f6f04814c9e4621ac65d114ab6b916f1c774030becf9
+    path: E:\specify-playground\tests\tmp_integration_scan\dup2.txt
+    size_bytes: 12
+    size_human: 12 B
+  group_id: 3f795881c6165d48af044fe2d213a9d33e542473423afc092a1458014ca8cf86741895ac5b7e785c0c13f6f04814c9e4621ac65d114ab6b916f1c774030becf9
+  space_wasted_bytes: 12
+  space_wasted_human: 12 B
+  total_size_bytes: 24
+  total_size_human: 24 B
+metadata:
+  duration_seconds: 0.007207
+  errors: []
+  recursive: true
+  scan_date: '2025-09-20T21:40:37.511125'
+  scanned_directory: E:\specify-playground\tests\tmp_integration_scan
+  total_files_found: 3
+  total_files_processed: 3
+potential_matches: []
+version: 1.0.0

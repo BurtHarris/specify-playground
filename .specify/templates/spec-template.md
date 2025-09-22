@@ -27,6 +27,8 @@
 
 ---
 
+*Based on project constitution (prototype/DRY preferred) - See `/memory/constitution.md`*
+
 ## ⚡ Quick Guidelines
 - ✅ Focus on WHAT users need and WHY
 - ❌ Avoid HOW to implement (no tech stack, APIs, code structure)

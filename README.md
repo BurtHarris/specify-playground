@@ -26,7 +26,7 @@ OneDrive detection requires Windows and uses Windows API file attributes for clo
 
 ## Installation
 
-1. Ensure Python 3.11+ is installed
+1. Ensure Python 3.12+ is installed
 2. Clone the repository
 3. Install dependencies: `pip install -r requirements.txt`
 
@@ -47,6 +47,26 @@ python -m src /path/to/videos --recursive
 # Non-recursive scan (current directory only)
 python -m src /path/to/videos --no-recursive
 ```
+
+### CLI: logging and examples
+
+The CLI exposes `--debug` and `--warning` flags which control the logging verbosity for the CLI and any injected components (for example, the scanner and detector). `--debug` enables DEBUG output; `--warning` reduces output to warnings and errors. If neither flag is provided, INFO is the default.
+
+Examples:
+
+```bash
+# Scan a folder with debug logging enabled
+python -m src /path/to/videos --debug
+
+# Scan and export results to YAML
+python -m src /path/to/videos --export results.yaml
+```
+
+### Typer adapter and entrypoints
+
+The project includes a Typer-based CLI adapter that delegates to the shared scan implementation in `src.cli.main`. Package entrypoints are updated to use the Typer adapter (script target `src.cli.typer_cli:cli_main`), and the module runner `python -m src` continues to work and will dispatch the `scan` subcommand automatically when a directory argument is provided.
+
+Programmatic test invocation of the Typer app is supported via the exported `app` proxy which returns an integer exit code when commands terminate with a non-zero status so tests can assert return codes without the process exiting.
 
 ### Cloud Status Filtering
 
