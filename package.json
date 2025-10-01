@@ -1,7 +1,7 @@
 {
   "name": "specify-playground",
-  "version": "1.0.0",
-  "description": "Video Duplicate Scanner CLI - A tool for detecting duplicate video files using two-stage detection (size comparison + hash computation).",
+  "version": "1.1.0",
+  "description": "a spec-kit playground to ease setting up play",
   "main": "src/cli/main.py",
   "scripts": {
     "test": "python -m pytest tests/ -v",
