@@ -53,7 +53,6 @@ yarn-error.log*
 Thumbs.db
 
 # Editor directories and files
-.vscode/
 .idea/
 *.sublime-workspace
 *.sublime-project
